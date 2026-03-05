@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PacketPulse | Request Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --black:  #060608;
+      --panel:  #080810;
+      --cyan:   #00e5ff;
+      --green:  #22c55e;
+      --red:    #f87171;
+      --amber:  #fbbf24;
+      --white:  #f0eff5;
+      --dim:    rgba(240,239,245,0.38);
+      --dimmer: rgba(240,239,245,0.16);
+      --rule:   rgba(240,239,245,0.07);
+      --mono:   'JetBrains Mono', monospace;
+      --sans:   'Instrument Sans', sans-serif;
+      --disp:   'Bebas Neue', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      cursor: crosshair;
+      overflow: hidden;
+    }
+    input, button, a, select { cursor: pointer; }
+
+    /* ═══════════════════════════════════════
+       LEFT PANEL — radar visualization
+    ═══════════════════════════════════════ */
+    .left-panel {
+      width: 48%;
+      position: relative;
+      background: var(--panel);
+      border-right: 1px solid var(--rule);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--rule) 1px, transparent 1px),
+        linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .corner-tl, .corner-br {
+      position: absolute;
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      color: var(--dimmer);
+      letter-spacing: 0.1em;
+      z-index: 3;
+    }
+    .corner-tl { top: 68px; left: 32px; }
+    .corner-br { bottom: 28px; right: 32px; text-align: right; }
+
+    .lp-header {
+      position: relative;
+      z-index: 2;
+      padding: 26px 32px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .lp-logo {
+      font-family: var(--disp);
+      font-size: 1.3rem;
+      letter-spacing: 0.05em;
+      color: var(--white);
+    }
+    .lp-logo em { font-style: normal; color: var(--cyan); }
+
+    .lp-badge {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--amber);
+      border: 1px solid rgba(251,191,36,0.25);
+      padding: 4px 10px;
+      border-radius: 2px;
+      background: rgba(251,191,36,0.06);
+    }
+
+    /* Radar canvas */
+    .radar-wrap {
+      flex: 1;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 32px;
+    }
+    canvas#radar { display: block; }
+
+    /* Detected hosts list */
+    .detected-list {
+      position: relative;
+      z-index: 2;
+      margin: 0 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .det-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 7px 12px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--rule);
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: opacity 0.4s, transform 0.4s;
+    }
+    .det-row.visible { opacity: 1; transform: translateX(0); }
+    .det-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .det-ip   { color: var(--white); flex-shrink: 0; width: 110px; }
+    .det-info { color: var(--dimmer); flex: 1; }
+    .det-tag  {
+      font-size: 0.58rem;
+      padding: 2px 7px;
+      border-radius: 2px;
+      border: 1px solid;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════════════════════════════
+       RIGHT PANEL — multi-step signup form
+    ═══════════════════════════════════════ */
+    .right-panel {
+      width: 52%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 52px 7%;
+      position: relative;
+      overflow-y: auto;
+    }
+
+    .right-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      pointer-events: none;
+    }
+
+    .back-link {
+      position: absolute;
+      top: 26px; left: 32px;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dimmer);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+      z-index: 10;
+    }
+    .back-link:hover { color: var(--white); }
+
+    .form-wrap {
+      width: 100%;
+      max-width: 400px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Step indicator */
+    .step-track {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 40px;
+    }
+    .step-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+    }
+    .step-circle {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(240,239,245,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--dimmer);
+      background: transparent;
+      transition: all 0.3s;
+    }
+    .step-node.active .step-circle {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: rgba(0,229,255,0.08);
+      box-shadow: 0 0 12px rgba(0,229,255,0.2);
+    }
+    .step-node.done .step-circle {
+      border-color: var(--green);
+      color: var(--green);
+      background: rgba(34,197,94,0.08);
+    }
+    .step-label {
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dimmer);
+      white-space: nowrap;
+    }
+    .step-node.active .step-label { color: var(--cyan); }
+    .step-node.done  .step-label  { color: var(--green); }
+
+    .step-line {
+      flex: 1;
+      height: 1px;
+      background: rgba(240,239,245,0.1);
+      margin: 0 6px;
+      margin-bottom: 22px;
+      transition: background 0.4s;
+    }
+    .step-line.done { background: var(--green); }
+
+    /* Form page containers */
+    .form-page {
+      display: none;
+      animation: fadeUp 0.35s ease both;
+    }
+    .form-page.active { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(14px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    .form-title {
+      font-family: var(--disp);
+      font-size: 3rem;
+      letter-spacing: 0.02em;
+      line-height: 0.92;
+      margin-bottom: 8px;
+    }
+    .form-sub {
+      font-size: 0.85rem;
+      color: var(--dim);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    /* Fields */
+    .field-group {
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .field-label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 7px;
+    }
+    .field-input, .field-select {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--white);
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      padding: 12px 16px;
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+    }
+    .field-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23555' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+    .field-select option { background: #111; color: var(--white); }
+    .field-input::placeholder { color: rgba(240,239,245,0.18); }
+    .field-input:focus, .field-select:focus {
+      border-color: var(--cyan);
+      background: rgba(0,229,255,0.03);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+    }
+    .field-input.error { border-color: var(--red); box-shadow: 0 0 0 3px rgba(248,113,113,0.1); }
+    .field-input.ok    { border-color: var(--green); }
+
+    .field-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field-hint {
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      letter-spacing: 0.04em;
+      margin-top: 5px;
+      display: none;
+    }
+    .field-hint.show { display: block; }
+    .field-hint.err  { color: var(--red); }
+    .field-hint.ok   { color: var(--green); }
+
+    /* Password strength meter */
+    .pw-strength {
+      margin-top: 8px;
+      display: none;
+    }
+    .pw-strength.show { display: block; }
+    .pw-track {
+      height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 5px;
+    }
+    .pw-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s, background 0.3s;
+      width: 0%;
+    }
+    .pw-label {
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      letter-spacing: 0.06em;
+    }
+
+    /* Checkbox */
+    .check-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .check-row input[type="checkbox"] {
+      accent-color: var(--cyan);
+      width: 14px; height: 14px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+    .check-row label {
+      font-size: 0.78rem;
+      color: var(--dim);
+      line-height: 1.55;
+      cursor: pointer;
+    }
+    .check-row label a {
+      color: var(--cyan);
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .check-row label a:hover { opacity: 0.7; }
+
+    /* Role card picker */
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .role-card {
+      border: 1.5px solid rgba(255,255,255,0.09);
+      border-radius: 6px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .role-card:hover { border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.02); }
+    .role-card.selected {
+      border-color: var(--cyan);
+      background: rgba(0,229,255,0.06);
+    }
+    .role-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .role-icon { font-size: 1.3rem; margin-bottom: 6px; }
+    .role-name {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--white);
+      letter-spacing: 0.06em;
+      margin-bottom: 3px;
+    }
+    .role-desc { font-size: 0.72rem; color: var(--dimmer); line-height: 1.4; }
+    .role-card.selected .role-check {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      color: var(--black);
+      font-weight: 700;
+    }
+
+    /* Org size picker */
+    .size-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .size-chip {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      color: var(--dim);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .size-chip:hover  { border-color: rgba(0,229,255,0.3); color: var(--white); }
+    .size-chip.active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,229,255,0.08); }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .btn-next {
+      flex: 1;
+      background: var(--cyan);
+      color: var(--black);
+      border: none;
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+    .btn-next:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,229,255,0.2); }
+    .btn-next:active { transform: translateY(0); }
+    .btn-next:disabled { background: rgba(255,255,255,0.1); color: var(--dimmer); cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-back {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 14px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-back:hover { border-color: rgba(255,255,255,0.3); color: var(--white); }
+
+    /* Success screen */
+    .success-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px 0;
+      animation: fadeUp 0.5s ease both;
+    }
+    .success-screen.active { display: flex; }
+    .success-glyph {
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      border: 2px solid var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      color: var(--green);
+      margin-bottom: 28px;
+      background: rgba(34,197,94,0.07);
+      box-shadow: 0 0 30px rgba(34,197,94,0.15);
+      animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    }
+    @keyframes pop {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .success-title {
+      font-family: var(--disp);
+      font-size: 2.8rem;
+      letter-spacing: 0.02em;
+      line-height: 0.95;
+      margin-bottom: 12px;
+    }
+    .success-sub {
+      font-size: 0.88rem;
+      color: var(--dim);
+      max-width: 320px;
+      margin-bottom: 36px;
+      line-height: 1.7;
+    }
+    .success-code {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      color: var(--cyan);
+      background: rgba(0,229,255,0.06);
+      border: 1px solid rgba(0,229,255,0.15);
+      padding: 10px 20px;
+      border-radius: 4px;
+      margin-bottom: 32px;
+    }
+
+    /* Alert */
+    .alert {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.22);
+      border-radius: 4px;
+      padding: 11px 13px;
+      margin-bottom: 18px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.04em;
+      color: var(--red);
+      animation: fadeUp 0.3s ease both;
+    }
+    .alert.show { display: flex; }
+
+    /* login link */
+    .login-link-row {
+      margin-top: 30px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: var(--dimmer);
+    }
+    .login-link-row a {
+      color: var(--cyan);
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .login-link-row a:hover { opacity: 0.7; }
+
+    @media (max-width: 860px) {
+      .left-panel { display: none; }
+      .right-panel { width: 100%; overflow-y: auto; }
+      body { overflow: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT PANEL — radar -->
+  <div class="left-panel">
+    <div class="grid-bg"></div>
+    <div class="corner-tl">DISCOVERY_MODE // ENUMERATING</div>
+    <div class="corner-br" id="corner-time"></div>
+
+    <div class="lp-header">
+      <div class="lp-logo">Packet<em>Pulse</em></div>
+      <div class="lp-badge">New Operator</div>
+    </div>
+
+    <div class="radar-wrap">
+      <canvas id="radar"></canvas>
+    </div>
+
+    <div class="detected-list" id="detected-list"></div>
+  </div>
+
+  <!-- RIGHT PANEL — signup form -->
+  <div class="right-panel">
+    <a href="login.html" class="back-link">← Log in</a>
+
+    <div class="form-wrap">
+
+      <!-- Step indicator -->
+      <div class="step-track" id="step-track">
+        <div class="step-node active" data-step="1">
+          <div class="step-circle">1</div>
+          <div class="step-label">Identity</div>
+        </div>
+        <div class="step-line" id="line-1"></div>
+        <div class="step-node" data-step="2">
+          <div class="step-circle">2</div>
+          <div class="step-label">Access</div>
+        </div>
+        <div class="step-line" id="line-2"></div>
+        <div class="step-node" data-step="3">
+          <div class="step-circle">3</div>
+          <div class="step-label">Org</div>
+        </div>
+        <div class="step-line" id="line-3"></div>
+        <div class="step-node" data-step="4">
+          <div class="step-circle">4</div>
+          <div class="step-label">Confirm</div>
+        </div>
+      </div>
+
+      <div class="alert" id="alert"><span>⚠</span><span id="alert-msg"></span></div>
+
+      <!-- STEP 1 — Identity -->
+      <div class="form-page active" id="page-1">
+        <h1 class="form-title">Who are<br>you?</h1>
+        <p class="form-sub">Create your operator identity for console access.</p>
+
+        <div class="field-row-2">
+          <div class="field-group">
+            <label class="field-label" for="fname">First Name</label>
+            <input class="field-input" type="text" id="fname" placeholder="Ada" autocomplete="given-name">
+            <div class="field-hint err" id="fname-hint">Required.</div>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="lname">Last Name</label>
+            <input class="field-input" type="text" id="lname" placeholder="Lovelace" autocomplete="family-name">
+            <div class="field-hint err" id="lname-hint">Required.</div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="email">Operator Email</label>
+          <input class="field-input" type="email" id="email" placeholder="operator@domain.local" autocomplete="email" spellcheck="false" autocapitalize="none">
+          <div class="field-hint err" id="email-hint">Enter a valid email address.</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="username">Operator ID <span style="color:var(--dimmer)">(used to log in)</span></label>
+          <input class="field-input" type="text" id="username" placeholder="ada.lovelace" autocomplete="username" spellcheck="false" autocapitalize="none">
+          <div class="field-hint err" id="username-hint">Operator ID is required.</div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-next" onclick="nextStep(1)">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2 — Access credentials -->
+      <div class="form-page" id="page-2">
+        <h1 class="form-title">Set your<br>Passphrase.</h1>
+        <p class="form-sub">Choose a strong passphrase. Minimum 12 characters.</p>
+
+        <div class="field-group">
+          <label class="field-label" for="pw1">Passphrase</label>
+          <input class="field-input" type="password" id="pw1" placeholder="••••••••••••••••" autocomplete="new-password" oninput="checkStrength()">
+          <div class="pw-strength" id="pw-strength">
+            <div class="pw-track"><div class="pw-fill" id="pw-fill"></div></div>
+            <div class="pw-label" id="pw-label"></div>
+          </div>
+          <div class="field-hint err" id="pw1-hint">Passphrase must be at least 12 characters.</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="pw2">Confirm Passphrase</label>
+          <input class="field-input" type="password" id="pw2" placeholder="••••••••••••••••" autocomplete="new-password" oninput="checkMatch()">
+          <div class="field-hint" id="pw2-hint"></div>
+        </div>
+
+        <div class="check-row" style="margin-bottom:24px">
+          <input type="checkbox" id="totp-setup">
+          <label for="totp-setup">I will set up two-factor authentication after registration <span style="color:var(--dimmer)">(strongly recommended)</span></label>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-back" onclick="prevStep(2)">← Back</button>
+          <button class="btn-next" onclick="nextStep(2)">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 — Organisation -->
+      <div class="form-page" id="page-3">
+        <h1 class="form-title">Your<br>Context.</h1>
+        <p class="form-sub">Help us understand your use case and environment.</p>
+
+        <label class="field-label" style="margin-bottom:10px;display:block">Operator Role</label>
+        <div class="role-grid" id="role-grid">
+          <div class="role-card selected" data-role="security" onclick="selectRole(this)">
+            <input type="radio" name="role" value="security" checked>
+            <div class="role-check">✓</div>
+            <div class="role-icon">🛡</div>
+            <div class="role-name">Security</div>
+            <div class="role-desc">Pen tester, SOC, or security analyst</div>
+          </div>
+          <div class="role-card" data-role="sysadmin" onclick="selectRole(this)">
+            <input type="radio" name="role" value="sysadmin">
+            <div class="role-icon">⚙️</div>
+            <div class="role-name">SysAdmin</div>
+            <div class="role-desc">Infrastructure and network operations</div>
+          </div>
+          <div class="role-card" data-role="devops" onclick="selectRole(this)">
+            <input type="radio" name="role" value="devops">
+            <div class="role-icon">🐳</div>
+            <div class="role-name">DevOps</div>
+            <div class="role-desc">CI/CD pipelines and containerised infra</div>
+          </div>
+          <div class="role-card" data-role="other" onclick="selectRole(this)">
+            <input type="radio" name="role" value="other">
+            <div class="role-icon">🔍</div>
+            <div class="role-name">Other</div>
+            <div class="role-desc">Researcher, student, or hobbyist</div>
+          </div>
+        </div>
+
+        <label class="field-label" style="margin-bottom:10px;display:block">Network Scale</label>
+        <div class="size-chips" id="size-chips">
+          <div class="size-chip active" data-size="1-10" onclick="selectSize(this)">1–10 hosts</div>
+          <div class="size-chip" data-size="11-50" onclick="selectSize(this)">11–50 hosts</div>
+          <div class="size-chip" data-size="51-200" onclick="selectSize(this)">51–200 hosts</div>
+          <div class="size-chip" data-size="200+" onclick="selectSize(this)">200+ hosts</div>
+        </div>
+
+        <div class="field-group" style="margin-bottom:8px">
+          <label class="field-label" for="org">Organisation <span style="color:var(--dimmer)">(optional)</span></label>
+          <input class="field-input" type="text" id="org" placeholder="Acme Corp / Personal" autocomplete="organization">
+        </div>
+
+        <div class="btn-row" style="margin-top:20px">
+          <button class="btn-back" onclick="prevStep(3)">← Back</button>
+          <button class="btn-next" onclick="nextStep(3)">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 4 — Review & confirm -->
+      <div class="form-page" id="page-4">
+        <h1 class="form-title">Review &amp;<br>Confirm.</h1>
+        <p class="form-sub">Verify your details before requesting access.</p>
+
+        <div id="review-block" style="margin-bottom:24px;background:rgba(255,255,255,0.03);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;font-family:var(--mono);font-size:0.7rem;line-height:2;color:var(--dim);">
+        </div>
+
+        <div class="check-row">
+          <input type="checkbox" id="terms">
+          <label for="terms">I agree to the <a href="#">Terms of Use</a> and <a href="#">Acceptable Use Policy</a>. I understand all scans are logged.</label>
+        </div>
+
+        <div class="check-row">
+          <input type="checkbox" id="ethics">
+          <label for="ethics">I confirm I will only scan networks I own or have explicit written permission to audit.</label>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-back" onclick="prevStep(4)">← Back</button>
+          <button class="btn-next" id="submit-btn" onclick="submitForm()">
+            <span id="btn-text">Request Access</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- SUCCESS -->
+      <div class="success-screen" id="success-screen">
+        <div class="success-glyph">✓</div>
+        <h2 class="success-title">Access<br>Requested.</h2>
+        <p class="success-sub">Your operator account has been submitted for review. You'll receive an activation email within 24 hours.</p>
+        <div class="success-code" id="success-code">REF // PP-XXXX-XXXX</div>
+        <a href="login.html" class="btn-next" style="display:inline-block;text-align:center;text-decoration:none;padding:14px 40px;border-radius:4px;font-family:var(--mono);font-size:0.76rem;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;background:var(--cyan);color:var(--black);transition:background 0.2s;">Go to Log In →</a>
+      </div>
+
+      <!-- Log in link -->
+      <div class="login-link-row" id="login-link-row">
+        Already have access? &nbsp;<a href="login.html">Log in →</a>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ────────────────────────────
+    //  CLOCK
+    // ────────────────────────────
+    function tick() {
+      const el = document.getElementById('corner-time');
+      if (el) el.textContent = new Date().toISOString().replace('T',' ').split('.')[0] + ' UTC';
+    }
+    tick(); setInterval(tick, 1000);
+
+    // ────────────────────────────
+    //  RADAR CANVAS
+    // ────────────────────────────
+    const radar  = document.getElementById('radar');
+    const rctx   = radar.getContext('2d');
+    const CYAN   = '#00e5ff';
+    const GREEN  = '#22c55e';
+    const RED    = '#f87171';
+    const AMBER  = '#fbbf24';
+
+    function resizeRadar() {
+      const w = radar.parentElement.clientWidth;
+      const h = radar.parentElement.clientHeight;
+      const size = Math.min(w, h, 340);
+      radar.width  = size * devicePixelRatio;
+      radar.height = size * devicePixelRatio;
+      radar.style.width  = size + 'px';
+      radar.style.height = size + 'px';
+      rctx.scale(devicePixelRatio, devicePixelRatio);
+    }
+    resizeRadar();
+    window.addEventListener('resize', () => { resizeRadar(); });
+
+    let sweepAngle = 0;
+    const radarBlips = [];
+
+    // Spawn blips at random positions within radar circle
+    function spawnBlip() {
+      const a = Math.random() * Math.PI * 2;
+      const r = (0.2 + Math.random() * 0.7);
+      const colors = [CYAN, CYAN, CYAN, GREEN, RED, AMBER];
+      radarBlips.push({
+        a, r,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        born: sweepAngle
+      });
+      if (radarBlips.length > 22) radarBlips.shift();
+    }
+
+    function drawRadar() {
+      const S = radar.width / devicePixelRatio;
+      const cx = S / 2, cy = S / 2;
+      const R  = S / 2 - 14;
+      rctx.clearRect(0, 0, S, S);
+
+      // Background circle
+      rctx.beginPath();
+      rctx.arc(cx, cy, R, 0, Math.PI * 2);
+      rctx.fillStyle = 'rgba(0,10,20,0.85)';
+      rctx.fill();
+      rctx.strokeStyle = 'rgba(0,229,255,0.15)';
+      rctx.lineWidth = 1;
+      rctx.stroke();
+
+      // Concentric rings
+      [0.25, 0.5, 0.75, 1].forEach(f => {
+        rctx.beginPath();
+        rctx.arc(cx, cy, R * f, 0, Math.PI * 2);
+        rctx.strokeStyle = 'rgba(0,229,255,0.08)';
+        rctx.lineWidth = 0.8;
+        rctx.stroke();
+      });
+
+      // Cross hairs
+      rctx.strokeStyle = 'rgba(0,229,255,0.07)';
+      rctx.lineWidth = 0.8;
+      rctx.beginPath(); rctx.moveTo(cx - R, cy); rctx.lineTo(cx + R, cy); rctx.stroke();
+      rctx.beginPath(); rctx.moveTo(cx, cy - R); rctx.lineTo(cx, cy + R); rctx.stroke();
+
+      // Sweep gradient
+      const sweepGrad = rctx.createConicalGradient
+        ? null // fallback below
+        : null;
+
+      // Draw sweep as a filled arc
+      const sweep1 = sweepAngle;
+      const sweep0 = sweep1 - 1.2;
+      const grad = rctx.createLinearGradient(cx, cy, cx + R, cy);
+      grad.addColorStop(0, 'rgba(0,229,255,0.0)');
+      grad.addColorStop(1, 'rgba(0,229,255,0.18)');
+
+      for (let i = 0; i < 30; i++) {
+        const frac = i / 30;
+        const a0 = sweep0 + (sweep1 - sweep0) * frac;
+        const a1 = sweep0 + (sweep1 - sweep0) * (frac + 1/30);
+        rctx.beginPath();
+        rctx.moveTo(cx, cy);
+        rctx.arc(cx, cy, R, a0, a1);
+        rctx.closePath();
+        rctx.fillStyle = `rgba(0,229,255,${0.0 + frac * 0.14})`;
+        rctx.fill();
+      }
+
+      // Sweep line
+      rctx.beginPath();
+      rctx.moveTo(cx, cy);
+      rctx.lineTo(cx + Math.cos(sweepAngle) * R, cy + Math.sin(sweepAngle) * R);
+      rctx.strokeStyle = 'rgba(0,229,255,0.7)';
+      rctx.lineWidth = 1.5;
+      rctx.stroke();
+
+      // Spawn blip when sweep crosses their angle
+      radarBlips.forEach(b => {
+        const diff = ((sweepAngle - b.born) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        b.alpha = Math.max(0, 1 - diff / (Math.PI * 2));
+      });
+
+      // Draw blips
+      radarBlips.forEach(b => {
+        const bx = cx + Math.cos(b.a) * b.r * R;
+        const by = cy + Math.sin(b.a) * b.r * R;
+        rctx.beginPath();
+        rctx.arc(bx, by, 3.5, 0, Math.PI * 2);
+        rctx.fillStyle = b.color;
+        rctx.shadowBlur = 10;
+        rctx.shadowColor = b.color;
+        rctx.globalAlpha = b.alpha;
+        rctx.fill();
+        rctx.shadowBlur = 0;
+        rctx.globalAlpha = 1;
+      });
+
+      // Center dot
+      rctx.beginPath();
+      rctx.arc(cx, cy, 3, 0, Math.PI * 2);
+      rctx.fillStyle = CYAN;
+      rctx.shadowBlur = 12;
+      rctx.shadowColor = CYAN;
+      rctx.fill();
+      rctx.shadowBlur = 0;
+
+      sweepAngle += 0.022;
+      if (sweepAngle > Math.PI * 2) {
+        sweepAngle -= Math.PI * 2;
+        spawnBlip();
+        spawnBlip();
+      }
+
+      requestAnimationFrame(drawRadar);
+    }
+
+    // Seed initial blips
+    for (let i = 0; i < 14; i++) spawnBlip();
+    drawRadar();
+
+    // ────────────────────────────
+    //  DETECTED LIST
+    // ────────────────────────────
+    const detectedEntries = [
+      { ip: '192.168.1.1',   info: 'gateway',       tag: 'ROUTER', color: CYAN   },
+      { ip: '192.168.1.22',  info: 'port 22 — SSH', tag: 'SERVER', color: GREEN  },
+      { ip: '192.168.1.105', info: 'port 445 open', tag: '⚠ SMB',  color: RED    },
+      { ip: '192.168.1.200', info: 'new host',       tag: 'HOST',   color: CYAN   },
+      { ip: '192.168.1.77',  info: 'Redis exposed',  tag: '⚠ DB',   color: AMBER  },
+    ];
+    let detIdx = 0;
+    const detList = document.getElementById('detected-list');
+
+    function addDetected() {
+      if (detIdx >= detectedEntries.length) return;
+      const e = detectedEntries[detIdx++];
+      const row = document.createElement('div');
+      row.className = 'det-row';
+      const tagColors = { CYAN, GREEN, RED: '#f87171', AMBER: '#fbbf24' };
+      const c = e.color;
+      row.innerHTML = `
+        <div class="det-dot" style="background:${c};box-shadow:0 0 6px ${c}"></div>
+        <span class="det-ip">${e.ip}</span>
+        <span class="det-info">${e.info}</span>
+        <span class="det-tag" style="color:${c};border-color:${c};background:${c}18">${e.tag}</span>
+      `;
+      detList.appendChild(row);
+      requestAnimationFrame(() => row.classList.add('visible'));
+      setTimeout(addDetected, 1800 + Math.random() * 1200);
+    }
+    setTimeout(addDetected, 1000);
+
+    // ────────────────────────────
+    //  MULTI-STEP FORM
+    // ────────────────────────────
+    let currentStep = 1;
+    const totalSteps = 4;
+
+    function setStep(n) {
+      // Hide all pages
+      document.querySelectorAll('.form-page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + n).classList.add('active');
+      document.getElementById('alert').classList.remove('show');
+      currentStep = n;
+
+      // Update step indicators
+      document.querySelectorAll('.step-node').forEach(node => {
+        const s = parseInt(node.dataset.step);
+        node.classList.remove('active', 'done');
+        if (s < n)  node.classList.add('done');
+        if (s === n) node.classList.add('active');
+        // Replace number with check for done steps
+        const circle = node.querySelector('.step-circle');
+        circle.textContent = s < n ? '✓' : s;
+      });
+
+      // Update lines
+      ['line-1','line-2','line-3'].forEach((id, i) => {
+        const line = document.getElementById(id);
+        if (line) line.classList.toggle('done', n > i + 1);
+      });
+
+      // Populate review on step 4
+      if (n === 4) populateReview();
+    }
+
+    function nextStep(from) {
+      if (!validateStep(from)) return;
+      if (from < totalSteps) setStep(from + 1);
+    }
+
+    function prevStep(from) {
+      if (from > 1) setStep(from - 1);
+    }
+
+    function validateStep(step) {
+      clearErrors();
+      let ok = true;
+
+      if (step === 1) {
+        if (!val('fname')) { showHint('fname', 'First name is required.'); ok = false; }
+        if (!val('lname')) { showHint('lname', 'Last name is required.'); ok = false; }
+        if (!val('email') || !val('email').includes('@')) { showHint('email', 'Enter a valid email address.'); ok = false; }
+        if (!val('username')) { showHint('username', 'Operator ID is required.'); ok = false; }
+      }
+
+      if (step === 2) {
+        const pw = val('pw1');
+        if (!pw || pw.length < 12) { showHint('pw1', 'Passphrase must be at least 12 characters.'); ok = false; }
+        else if (val('pw2') !== pw) { showHintEl('pw2', 'Passphrases do not match.', 'err'); ok = false; }
+      }
+
+      if (step === 4) {
+        if (!document.getElementById('terms').checked) { showAlert('You must agree to the Terms of Use.'); ok = false; }
+        else if (!document.getElementById('ethics').checked) { showAlert('Please confirm responsible use.'); ok = false; }
+      }
+
+      return ok;
+    }
+
+    // ── PASSWORD STRENGTH ──
+    function checkStrength() {
+      const pw  = val('pw1');
+      const str = document.getElementById('pw-strength');
+      const fill = document.getElementById('pw-fill');
+      const lbl  = document.getElementById('pw-label');
+      if (!pw) { str.classList.remove('show'); return; }
+      str.classList.add('show');
+
+      let score = 0;
+      if (pw.length >= 8)  score++;
+      if (pw.length >= 12) score++;
+      if (/[A-Z]/.test(pw)) score++;
+      if (/[0-9]/.test(pw)) score++;
+      if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+      const levels = [
+        { w:'20%', color:'#f87171', label:'Weak' },
+        { w:'40%', color:'#fb923c', label:'Fair' },
+        { w:'60%', color:'#fbbf24', label:'Moderate' },
+        { w:'80%', color:'#4ade80', label:'Strong' },
+        { w:'100%',color:'#22c55e', label:'Excellent' },
+      ];
+      const lvl = levels[Math.min(score - 1, 4)] || levels[0];
+      fill.style.width   = lvl.w;
+      fill.style.background = lvl.color;
+      lbl.textContent    = lvl.label;
+      lbl.style.color    = lvl.color;
+    }
+
+    function checkMatch() {
+      const h = document.getElementById('pw2-hint');
+      const match = val('pw1') === val('pw2');
+      h.textContent = match ? 'Passphrases match.' : 'Passphrases do not match.';
+      h.className   = 'field-hint show ' + (match ? 'ok' : 'err');
+      document.getElementById('pw2').classList.toggle('ok', match);
+      document.getElementById('pw2').classList.toggle('error', !match);
+    }
+
+    // ── ROLE / SIZE PICKERS ──
+    function selectRole(card) {
+      document.querySelectorAll('.role-card').forEach(c => {
+        c.classList.remove('selected');
+        const chk = c.querySelector('.role-check');
+        if (chk) chk.remove();
+      });
+      card.classList.add('selected');
+      const chk = document.createElement('div');
+      chk.className = 'role-check'; chk.textContent = '✓';
+      card.appendChild(chk);
+      card.querySelector('input[type=radio]').checked = true;
+    }
+
+    function selectSize(chip) {
+      document.querySelectorAll('.size-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    }
+
+    // ── REVIEW ──
+    function populateReview() {
+      const role = document.querySelector('.role-card.selected')?.dataset?.role || '—';
+      const size = document.querySelector('.size-chip.active')?.dataset?.size   || '—';
+      const rb   = document.getElementById('review-block');
+      rb.innerHTML = `
+        <div style="display:grid;grid-template-columns:140px 1fr;gap:4px 12px">
+          <span style="color:var(--dimmer)">OPERATOR ID</span><span style="color:var(--white)">${esc(val('username'))}</span>
+          <span style="color:var(--dimmer)">NAME</span><span style="color:var(--white)">${esc(val('fname'))} ${esc(val('lname'))}</span>
+          <span style="color:var(--dimmer)">EMAIL</span><span style="color:var(--white)">${esc(val('email'))}</span>
+          <span style="color:var(--dimmer)">ROLE</span><span style="color:var(--white)">${role.toUpperCase()}</span>
+          <span style="color:var(--dimmer)">NETWORK SCALE</span><span style="color:var(--white)">${size}</span>
+          <span style="color:var(--dimmer)">ORGANISATION</span><span style="color:var(--white)">${esc(val('org')) || '—'}</span>
+          <span style="color:var(--dimmer)">2FA SETUP</span><span style="${document.getElementById('totp-setup').checked ? 'color:var(--green)' : 'color:var(--amber)'}">${document.getElementById('totp-setup').checked ? 'Agreed' : 'Skipped (not recommended)'}</span>
+        </div>
+      `;
+    }
+
+    // ── SUBMIT ──
+    function submitForm() {
+      if (!validateStep(4)) return;
+      const btn = document.getElementById('submit-btn');
+      const txt = document.getElementById('btn-text');
+      btn.disabled = true;
+      txt.textContent = 'Submitting…';
+
+      setTimeout(() => {
+        // Generate a fake ref code
+        const ref = 'PP-' + Math.random().toString(36).substring(2,6).toUpperCase() + '-' + Math.random().toString(36).substring(2,6).toUpperCase();
+        document.getElementById('success-code').textContent = 'REF // ' + ref;
+
+        // Hide step track + form, show success
+        document.getElementById('step-track').style.display = 'none';
+        document.getElementById('alert').classList.remove('show');
+        document.querySelectorAll('.form-page').forEach(p => p.classList.remove('active'));
+        document.getElementById('success-screen').classList.add('active');
+        document.getElementById('login-link-row').style.display = 'none';
+      }, 1800);
+    }
+
+    // ── HELPERS ──
+    function val(id) { return (document.getElementById(id)?.value || '').trim(); }
+    function esc(s)  { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function showHint(id, msg) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('error');
+      const h = document.getElementById(id + '-hint');
+      if (h) { h.textContent = msg; h.classList.add('show'); }
+    }
+    function showHintEl(id, msg, cls) {
+      const h = document.getElementById(id + '-hint');
+      if (!h) return;
+      h.textContent = msg;
+      h.className = `field-hint show ${cls}`;
+    }
+    function showAlert(msg) {
+      const a = document.getElementById('alert');
+      document.getElementById('alert-msg').textContent = msg;
+      a.classList.add('show');
+    }
+    function clearErrors() {
+      document.querySelectorAll('.field-input').forEach(el => el.classList.remove('error'));
+      document.querySelectorAll('.field-hint').forEach(el => el.classList.remove('show'));
+      document.getElementById('alert').classList.remove('show');
+    }
+  </script>
+</body>
+</html>

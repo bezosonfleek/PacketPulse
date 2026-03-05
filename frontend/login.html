@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PacketPulse | Secure Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --black:  #060608;
+      --ink:    #0d0d10;
+      --panel:  #0a0a0d;
+      --cyan:   #00e5ff;
+      --green:  #22c55e;
+      --red:    #f87171;
+      --amber:  #fbbf24;
+      --white:  #f0eff5;
+      --dim:    rgba(240,239,245,0.38);
+      --dimmer: rgba(240,239,245,0.16);
+      --rule:   rgba(240,239,245,0.07);
+      --mono:   'JetBrains Mono', monospace;
+      --sans:   'Instrument Sans', sans-serif;
+      --disp:   'Bebas Neue', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      display: flex;
+      -webkit-font-smoothing: antialiased;
+      cursor: crosshair;
+    }
+    input, button, a { cursor: pointer; }
+
+    /* ═══════════════════════════════════════
+       LEFT PANEL — live network visualization
+    ═══════════════════════════════════════ */
+    .left-panel {
+      width: 52%;
+      position: relative;
+      background: var(--panel);
+      border-right: 1px solid var(--rule);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Animated grid background */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--rule) 1px, transparent 1px),
+        linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+      background-size: 48px 48px;
+      animation: gridShift 24s linear infinite;
+    }
+    @keyframes gridShift {
+      to { background-position: 48px 48px; }
+    }
+
+    /* Radial glow */
+    .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: orb 8s ease-in-out infinite;
+    }
+    .glow-orb.a {
+      width: 500px; height: 500px;
+      top: -100px; left: -100px;
+      background: radial-gradient(circle, rgba(0,229,255,0.07) 0%, transparent 70%);
+    }
+    .glow-orb.b {
+      width: 400px; height: 400px;
+      bottom: -80px; right: -60px;
+      background: radial-gradient(circle, rgba(34,197,94,0.05) 0%, transparent 70%);
+      animation-delay: -4s;
+    }
+    @keyframes orb {
+      0%,100% { transform: scale(1); }
+      50%      { transform: scale(1.12); }
+    }
+
+    /* Scan sweep line */
+    .sweep {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, var(--cyan) 50%, transparent 100%);
+      opacity: 0.3;
+      animation: sweep 5s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0%   { top: -2px; opacity: 0; }
+      5%   { opacity: 0.3; }
+      95%  { opacity: 0.3; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    /* Top bar of left panel */
+    .lp-header {
+      position: relative;
+      z-index: 2;
+      padding: 28px 36px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .lp-logo {
+      font-family: var(--disp);
+      font-size: 1.35rem;
+      letter-spacing: 0.05em;
+      color: var(--white);
+    }
+    .lp-logo em { font-style: normal; color: var(--cyan); }
+
+    .lp-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    /* Network map canvas area */
+    .network-map {
+      flex: 1;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 36px;
+    }
+
+    canvas#netmap {
+      width: 100%;
+      height: 100%;
+      max-height: 420px;
+      opacity: 0.9;
+    }
+
+    /* Live log feed */
+    .log-feed {
+      position: relative;
+      z-index: 2;
+      margin: 0 36px 32px;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      line-height: 1.9;
+      max-height: 148px;
+      overflow: hidden;
+    }
+    .log-line {
+      display: flex;
+      gap: 10px;
+      opacity: 0;
+      animation: logIn 0.4s ease forwards;
+    }
+    @keyframes logIn {
+      from { opacity:0; transform:translateY(4px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .log-time  { color: var(--dimmer); flex-shrink: 0; }
+    .log-ok    { color: var(--green); }
+    .log-warn  { color: var(--amber); }
+    .log-err   { color: var(--red); }
+    .log-info  { color: var(--cyan); }
+    .log-msg   { color: var(--dim); }
+
+    /* Corner coords overlay */
+    .corner-tl, .corner-br {
+      position: absolute;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--dimmer);
+      letter-spacing: 0.1em;
+      z-index: 3;
+    }
+    .corner-tl { top: 72px; left: 36px; }
+    .corner-br { bottom: 36px; right: 36px; text-align: right; }
+
+    /* ═══════════════════════════════════════
+       RIGHT PANEL — sign-in form
+    ═══════════════════════════════════════ */
+    .right-panel {
+      width: 48%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 7%;
+      position: relative;
+      overflow-y: auto;
+    }
+
+    /* Subtle noise texture */
+    .right-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .form-wrap {
+      width: 100%;
+      max-width: 380px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Access level badge */
+    .access-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      border: 1px solid rgba(0,229,255,0.25);
+      padding: 6px 14px;
+      border-radius: 2px;
+      margin-bottom: 36px;
+      background: rgba(0,229,255,0.05);
+    }
+    .access-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--cyan);
+      animation: blink 1.4s infinite;
+      flex-shrink: 0;
+    }
+
+    /* Form heading */
+    .form-title {
+      font-family: var(--disp);
+      font-size: 3.4rem;
+      letter-spacing: 0.03em;
+      line-height: 0.92;
+      margin-bottom: 10px;
+      animation: fadeUp 0.7s ease both;
+    }
+    .form-sub {
+      font-size: 0.88rem;
+      color: var(--dim);
+      margin-bottom: 44px;
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* Form fields */
+    .form { animation: fadeUp 0.7s 0.2s ease both; }
+
+    .field-group {
+      margin-bottom: 18px;
+      position: relative;
+    }
+    .field-label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 8px;
+    }
+    .field-input-wrap {
+      position: relative;
+    }
+    .field-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--white);
+      font-family: var(--mono);
+      font-size: 0.92rem;
+      padding: 13px 44px 13px 16px;
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.22s, background 0.22s, box-shadow 0.22s;
+      -webkit-font-smoothing: antialiased;
+    }
+    .field-input::placeholder { color: rgba(240,239,245,0.2); }
+    .field-input:focus {
+      border-color: var(--cyan);
+      background: rgba(0,229,255,0.04);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+    }
+    .field-input.error {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(248,113,113,0.12);
+    }
+    .field-input.success {
+      border-color: var(--green);
+    }
+
+    /* Icon inside input */
+    .field-icon {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--dimmer);
+      font-size: 0.85rem;
+      pointer-events: none;
+      transition: color 0.2s;
+    }
+    .field-input:focus + .field-icon { color: var(--cyan); }
+
+    /* Password toggle */
+    .pw-toggle {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--dimmer);
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: var(--mono);
+      padding: 0;
+      transition: color 0.2s;
+    }
+    .pw-toggle:hover { color: var(--white); }
+
+    /* Field hint */
+    .field-hint {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.06em;
+      margin-top: 6px;
+      color: var(--red);
+      display: none;
+    }
+    .field-hint.show { display: block; }
+
+    /* Row — remember + forgot */
+    .field-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      margin-top: -4px;
+    }
+    .check-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      cursor: pointer;
+      user-select: none;
+    }
+    .check-label input[type="checkbox"] {
+      accent-color: var(--cyan);
+      width: 14px; height: 14px;
+      cursor: pointer;
+    }
+    .forgot-link {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .forgot-link:hover { color: var(--cyan); }
+
+    /* MFA row */
+    .mfa-group {
+      margin-bottom: 28px;
+    }
+    .mfa-inputs {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .mfa-input {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--white);
+      font-family: var(--mono);
+      font-size: 1.2rem;
+      font-weight: 500;
+      text-align: center;
+      padding: 12px 0;
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 44px;
+    }
+    .mfa-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+    }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      background: var(--cyan);
+      color: var(--black);
+      border: none;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.22s, transform 0.15s, box-shadow 0.22s;
+      margin-bottom: 24px;
+    }
+    .btn-submit:hover {
+      background: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(0,229,255,0.25);
+    }
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled {
+      background: rgba(255,255,255,0.12);
+      color: var(--dimmer);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Button loading shimmer */
+    .btn-submit .shimmer {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+      transform: translateX(-100%);
+      animation: none;
+    }
+    .btn-submit.loading .shimmer {
+      animation: shimmer 1.2s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      to { transform: translateX(100%); }
+    }
+    .btn-submit .btn-text { position: relative; z-index: 1; }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--rule);
+    }
+    .divider-text {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dimmer);
+    }
+
+    /* SSO button */
+    .btn-sso {
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 13px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+      margin-bottom: 36px;
+    }
+    .btn-sso:hover {
+      border-color: rgba(255,255,255,0.28);
+      color: var(--white);
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* Security note */
+    .security-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: rgba(0,229,255,0.05);
+      border: 1px solid rgba(0,229,255,0.12);
+      border-radius: 4px;
+      padding: 12px 14px;
+    }
+    .sec-icon {
+      color: var(--cyan);
+      font-size: 0.9rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .sec-text {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.04em;
+      color: rgba(0,229,255,0.7);
+      line-height: 1.6;
+    }
+
+    /* Alert banner */
+    .alert {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.25);
+      border-radius: 4px;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      color: var(--red);
+      animation: fadeUp 0.3s ease both;
+    }
+    .alert.show { display: flex; }
+
+    /* Back link */
+    .back-link {
+      position: absolute;
+      top: 28px;
+      left: 36px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dimmer);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+      z-index: 10;
+    }
+    .back-link:hover { color: var(--white); }
+
+    /* Responsive collapse — hide left panel on small screens */
+    @media (max-width: 860px) {
+      .left-panel { display: none; }
+      .right-panel { width: 100%; height: 100vh; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="grid-bg"></div>
+    <div class="glow-orb a"></div>
+    <div class="glow-orb b"></div>
+    <div class="sweep"></div>
+
+    <div class="corner-tl">SYS:ACTIVE // AUTH_GATE_v2.1</div>
+    <div class="corner-br" id="corner-time"></div>
+
+    <div class="lp-header">
+      <div class="lp-logo">Packet<em>Pulse</em></div>
+      <div class="lp-status">
+        <div class="status-dot"></div>
+        Systems Nominal
+      </div>
+    </div>
+
+    <!-- Network topology canvas -->
+    <div class="network-map">
+      <canvas id="netmap"></canvas>
+    </div>
+
+    <!-- Live log -->
+    <div class="log-feed" id="log-feed"></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <a href="/" class="back-link">← Back</a>
+
+    <div class="form-wrap">
+
+      <div class="access-badge">Secure Access Portal</div>
+
+      <h1 class="form-title">Operator<br>Sign In.</h1>
+      <p class="form-sub">Authenticate to access the PacketPulse console.</p>
+
+      <!-- Alert -->
+      <div class="alert" id="alert">
+        <span>⚠</span>
+        <span id="alert-msg">Invalid credentials. Access denied.</span>
+      </div>
+
+      <form class="form" id="signin-form" onsubmit="handleSubmit(event)" novalidate>
+
+        <!-- Operator ID -->
+        <div class="field-group">
+          <label class="field-label" for="username">Operator ID</label>
+          <div class="field-input-wrap">
+            <input
+              class="field-input"
+              type="text"
+              id="username"
+              name="username"
+              placeholder="operator@domain.local"
+              autocomplete="username"
+              spellcheck="false"
+              autocapitalize="none"
+            >
+            <span class="field-icon">@</span>
+          </div>
+          <div class="field-hint" id="username-hint">Operator ID is required.</div>
+        </div>
+
+        <!-- Passphrase -->
+        <div class="field-group">
+          <label class="field-label" for="password">Passphrase</label>
+          <div class="field-input-wrap">
+            <input
+              class="field-input"
+              type="password"
+              id="password"
+              name="password"
+              placeholder="••••••••••••"
+              autocomplete="current-password"
+            >
+            <button type="button" class="pw-toggle" id="pw-toggle" onclick="togglePw()" title="Show / hide">
+              SHOW
+            </button>
+          </div>
+          <div class="field-hint" id="password-hint">Passphrase is required.</div>
+        </div>
+
+        <!-- Row -->
+        <div class="field-row">
+          <label class="check-label">
+            <input type="checkbox" id="remember"> Keep me signed in
+          </label>
+          <a href="#" class="forgot-link">Reset access →</a>
+        </div>
+
+        <!-- MFA -->
+        <div class="mfa-group">
+          <label class="field-label">Two-Factor Code</label>
+          <div class="mfa-inputs" id="mfa-inputs">
+            <input class="mfa-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code">
+            <input class="mfa-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+            <input class="mfa-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+            <input class="mfa-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+            <input class="mfa-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+            <input class="mfa-input" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          </div>
+          <div class="field-hint show" style="color:rgba(240,239,245,0.3)">Enter the 6-digit code from your authenticator app.</div>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn-submit" id="submit-btn">
+          <div class="shimmer"></div>
+          <span class="btn-text" id="btn-text">Authenticate</span>
+        </button>
+
+        <!-- Divider -->
+        <div class="divider">
+          <div class="divider-line"></div>
+          <span class="divider-text">or continue with</span>
+          <div class="divider-line"></div>
+        </div>
+
+        <!-- SSO -->
+        <button type="button" class="btn-sso" onclick="handleSSO()">
+          <span>🔑</span> Single Sign-On (SSO)
+        </button>
+
+        <!-- Security note -->
+        <div class="security-note">
+          <span class="sec-icon">🔒</span>
+          <div class="sec-text">
+            This session is encrypted end-to-end. All access attempts are logged and monitored. 
+            Unauthorised access is a criminal offence.
+          </div>
+        </div>
+
+      </form>
+
+      <!-- Signup link -->
+      <div style="margin-top:32px;text-align:center;font-family:var(--mono);font-size:0.68rem;letter-spacing:0.08em;color:var(--dimmer);">
+        No account? &nbsp;<a href="signup.html" style="color:var(--cyan);text-decoration:none;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">Request Access →</a>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────
+    //  CLOCK
+    // ─────────────────────────────────────────
+    function updateClock() {
+      const el = document.getElementById('corner-time');
+      if (!el) return;
+      const now = new Date();
+      el.textContent = now.toISOString().replace('T', ' ').split('.')[0] + ' UTC';
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ─────────────────────────────────────────
+    //  NETWORK TOPOLOGY CANVAS
+    // ─────────────────────────────────────────
+    const canvas  = document.getElementById('netmap');
+    const ctx     = canvas.getContext('2d');
+
+    function resize() {
+      const parent = canvas.parentElement;
+      canvas.width  = parent.clientWidth  * devicePixelRatio;
+      canvas.height = parent.clientHeight * devicePixelRatio;
+      canvas.style.width  = parent.clientWidth  + 'px';
+      canvas.style.height = parent.clientHeight + 'px';
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+    }
+    window.addEventListener('resize', () => { resize(); });
+    resize();
+
+    // Nodes
+    const CYAN  = '#00e5ff';
+    const GREEN = '#22c55e';
+    const RED   = '#f87171';
+    const AMBER = '#fbbf24';
+    const DIM   = 'rgba(240,239,245,0.18)';
+
+    const nodeTypes = [
+      { label: 'GATEWAY',  color: CYAN,  size: 10, risk: 0 },
+      { label: 'SERVER',   color: GREEN, size: 7,  risk: 0 },
+      { label: 'HOST',     color: DIM,   size: 5,  risk: 0 },
+      { label: '⚠ RDP',   color: RED,   size: 7,  risk: 1 },
+      { label: 'DOCKER',   color: AMBER, size: 6,  risk: 0 },
+    ];
+
+    function makeNodes(w, h) {
+      const cx = w / 2, cy = h / 2;
+      const nodes = [
+        { x: cx, y: cy, ...nodeTypes[0], id: 0 },
+      ];
+      // Rings of nodes
+      const ring1 = [
+        { ...nodeTypes[1] }, { ...nodeTypes[3] }, { ...nodeTypes[1] },
+        { ...nodeTypes[4] }, { ...nodeTypes[1] }
+      ];
+      const ring2Count = 11;
+      ring1.forEach((t, i) => {
+        const a = (i / ring1.length) * Math.PI * 2 - Math.PI / 2;
+        const r = Math.min(w, h) * 0.25;
+        nodes.push({ x: cx + Math.cos(a)*r, y: cy + Math.sin(a)*r, ...t, id: nodes.length });
+      });
+      for (let i = 0; i < ring2Count; i++) {
+        const a = (i / ring2Count) * Math.PI * 2 - Math.PI / 3;
+        const r = Math.min(w, h) * 0.42;
+        const t = nodeTypes[Math.random() < 0.2 ? 3 : Math.random() < 0.4 ? 1 : 2];
+        nodes.push({ x: cx + Math.cos(a)*r, y: cy + Math.sin(a)*r, ...t, id: nodes.length });
+      }
+      return nodes;
+    }
+
+    let nodes = [];
+    let pulses = []; // {from, to, t, speed}
+    let t = 0;
+
+    function initNodes() {
+      const w = canvas.width / devicePixelRatio;
+      const h = canvas.height / devicePixelRatio;
+      nodes = makeNodes(w, h);
+    }
+
+    function spawnPulse() {
+      if (nodes.length < 2) return;
+      const from = Math.floor(Math.random() * nodes.length);
+      let to = Math.floor(Math.random() * nodes.length);
+      while (to === from) to = Math.floor(Math.random() * nodes.length);
+      pulses.push({ from, to, t: 0, speed: 0.004 + Math.random() * 0.004 });
+      if (pulses.length > 18) pulses.shift();
+    }
+
+    setInterval(spawnPulse, 600);
+
+    function draw() {
+      const W = canvas.width / devicePixelRatio;
+      const H = canvas.height / devicePixelRatio;
+      ctx.clearRect(0, 0, W, H);
+
+      if (nodes.length === 0) initNodes();
+
+      // Draw edges
+      nodes.forEach((n, i) => {
+        if (i === 0) return;
+        // Connect to parent (node 0 or a ring-1 node)
+        const target = i < 6 ? 0 : 1 + (i % 5);
+        const tn = nodes[target];
+        if (!tn) return;
+        ctx.beginPath();
+        ctx.moveTo(n.x, n.y);
+        ctx.lineTo(tn.x, tn.y);
+        ctx.strokeStyle = 'rgba(240,239,245,0.05)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      });
+
+      // Draw pulses
+      pulses.forEach(p => {
+        const fn = nodes[p.from], tn = nodes[p.to];
+        if (!fn || !tn) return;
+        p.t = Math.min(p.t + p.speed, 1);
+        const px = fn.x + (tn.x - fn.x) * p.t;
+        const py = fn.y + (tn.y - fn.y) * p.t;
+        ctx.beginPath();
+        ctx.arc(px, py, 3, 0, Math.PI * 2);
+        const col = fn.risk || tn.risk ? RED : CYAN;
+        ctx.fillStyle = col;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = col;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      pulses = pulses.filter(p => p.t < 1);
+
+      // Draw nodes
+      nodes.forEach((n, i) => {
+        // Pulse ring
+        const pulse = 0.5 + 0.5 * Math.sin(t * 0.03 + i * 0.8);
+
+        if (i === 0) {
+          // Gateway — double ring
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.size * 2.2 + pulse * 3, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(0,229,255,0.12)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.size + (i === 0 ? pulse * 2 : 0), 0, Math.PI * 2);
+        ctx.fillStyle = n.color;
+        ctx.shadowBlur = n.size * 2;
+        ctx.shadowColor = n.color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Label
+        if (n.size >= 6) {
+          ctx.fillStyle = 'rgba(240,239,245,0.45)';
+          ctx.font = `500 9px 'JetBrains Mono', monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText(n.label, n.x, n.y + n.size + 13);
+        }
+      });
+
+      t++;
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', initNodes);
+    initNodes();
+    draw();
+
+    // ─────────────────────────────────────────
+    //  LIVE LOG FEED
+    // ─────────────────────────────────────────
+    const logMessages = [
+      ['ok',   '192.168.1.1',   'gateway — heartbeat OK'],
+      ['info', '192.168.1.105', 'port scan initiated'],
+      ['warn', '192.168.1.105', 'port 445 open — SMB exposed'],
+      ['ok',   '192.168.1.22',  'SSH handshake complete'],
+      ['info', '192.168.1.200', 'new host discovered'],
+      ['err',  '192.168.1.200', 'port 3389 OPEN — RDP exposed'],
+      ['ok',   '192.168.1.50',  'HTTPS — TLS 1.3 verified'],
+      ['warn', '192.168.1.88',  'SNMP open — community string default'],
+      ['info', '192.168.1.1',   'ARP table updated (14 entries)'],
+      ['ok',   '192.168.1.142', 'Docker API — port 2375 closed'],
+      ['warn', '192.168.1.77',  'Redis — no auth required'],
+      ['ok',   '192.168.1.33',  'DNS query — resolved 8.8.8.8'],
+      ['err',  '192.168.1.99',  'port 4444 OPEN — Metasploit?'],
+      ['info', '192.168.1.5',   'NTP — sync OK'],
+      ['ok',   '192.168.1.110', 'PostgreSQL — port 5432 reachable'],
+    ];
+
+    let logIdx = 0;
+    const logFeed = document.getElementById('log-feed');
+    const MAX_LINES = 7;
+
+    function addLogLine() {
+      const [type, host, msg] = logMessages[logIdx % logMessages.length];
+      logIdx++;
+
+      const now = new Date();
+      const ts  = now.toTimeString().split(' ')[0];
+
+      const colorMap = { ok: 'log-ok', warn: 'log-warn', err: 'log-err', info: 'log-info' };
+      const prefixMap = { ok: '✓', warn: '△', err: '✕', info: '→' };
+
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.innerHTML = `
+        <span class="log-time">${ts}</span>
+        <span class="${colorMap[type]}">${prefixMap[type]}</span>
+        <span class="log-msg">${host} &mdash; ${msg}</span>
+      `;
+      logFeed.appendChild(line);
+
+      // Keep max lines
+      while (logFeed.children.length > MAX_LINES) {
+        logFeed.removeChild(logFeed.firstChild);
+      }
+    }
+
+    // Staggered start
+    setTimeout(() => addLogLine(), 300);
+    setTimeout(() => addLogLine(), 900);
+    setTimeout(() => addLogLine(), 1500);
+    setInterval(addLogLine, 2200);
+
+    // ─────────────────────────────────────────
+    //  MFA INPUT — auto-advance & paste
+    // ─────────────────────────────────────────
+    const mfaInputs = Array.from(document.querySelectorAll('.mfa-input'));
+
+    mfaInputs.forEach((inp, i) => {
+      inp.addEventListener('input', e => {
+        const val = inp.value.replace(/\D/g, '');
+        inp.value = val.slice(0, 1);
+        if (val && i < mfaInputs.length - 1) mfaInputs[i + 1].focus();
+      });
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !inp.value && i > 0) mfaInputs[i - 1].focus();
+      });
+      inp.addEventListener('paste', e => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        text.split('').forEach((ch, j) => {
+          if (mfaInputs[i + j]) mfaInputs[i + j].value = ch;
+        });
+        const next = mfaInputs[Math.min(i + text.length, mfaInputs.length - 1)];
+        next.focus();
+      });
+    });
+
+    // ─────────────────────────────────────────
+    //  PASSWORD TOGGLE
+    // ─────────────────────────────────────────
+    function togglePw() {
+      const inp = document.getElementById('password');
+      const btn = document.getElementById('pw-toggle');
+      const show = inp.type === 'password';
+      inp.type  = show ? 'text' : 'password';
+      btn.textContent = show ? 'HIDE' : 'SHOW';
+    }
+
+    // ─────────────────────────────────────────
+    //  FORM SUBMIT
+    // ─────────────────────────────────────────
+    function handleSubmit(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const mfaCode  = mfaInputs.map(i => i.value).join('');
+
+      // Clear previous errors
+      clearErrors();
+      let valid = true;
+
+      if (!username) {
+        showFieldError('username', 'Operator ID is required.');
+        valid = false;
+      }
+      if (!password) {
+        showFieldError('password', 'Passphrase is required.');
+        valid = false;
+      }
+      if (mfaCode.length < 6) {
+        showAlert('Please enter the full 6-digit two-factor code.');
+        valid = false;
+      }
+      if (!valid) return;
+
+      // Simulate auth
+      const btn      = document.getElementById('submit-btn');
+      const btnText  = document.getElementById('btn-text');
+      btn.disabled   = true;
+      btn.classList.add('loading');
+      btnText.textContent = 'Authenticating…';
+
+      setTimeout(() => {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btnText.textContent = 'Authenticate';
+        // Demo: always show error (replace with real auth)
+        showAlert('Invalid credentials or 2FA code. Access denied.');
+      }, 2000);
+    }
+
+    function showFieldError(id, msg) {
+      document.getElementById(id).classList.add('error');
+      const hint = document.getElementById(id + '-hint');
+      if (hint) { hint.textContent = msg; hint.classList.add('show'); }
+    }
+
+    function showAlert(msg) {
+      const alert = document.getElementById('alert');
+      document.getElementById('alert-msg').textContent = msg;
+      alert.classList.add('show');
+    }
+
+    function clearErrors() {
+      document.querySelectorAll('.field-input').forEach(el => el.classList.remove('error', 'success'));
+      document.querySelectorAll('.field-hint').forEach(el => el.classList.remove('show'));
+      document.getElementById('alert').classList.remove('show');
+    }
+
+    function handleSSO() {
+      const btn = document.getElementById('submit-btn');
+      const btnText = document.getElementById('btn-text');
+      btn.disabled = true;
+      btnText.textContent = 'Redirecting…';
+      setTimeout(() => {
+        btn.disabled = false;
+        btnText.textContent = 'Authenticate';
+        showAlert('SSO provider not configured. Contact your administrator.');
+      }, 1200);
+    }
+  </script>
+</body>
+</html>
