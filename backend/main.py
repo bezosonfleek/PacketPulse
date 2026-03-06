@@ -19,11 +19,13 @@ Run directly during development:
 In production it runs inside the Docker backend container.
 """
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import json
 import logging
-import os
 import signal
-import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 
