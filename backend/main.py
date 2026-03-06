@@ -33,7 +33,11 @@ from dotenv import load_dotenv
 
 import db
 from auth import AuthError
-from routes import auth_routes, scan_routes
+
+# If auth_routes.py is INSIDE the routes folder:
+from routes.auth_routes import handle as auth_handle
+from routes.scan_routes import handle as scan_handle
+#from routes.scan_routes import scan_routes
 
 # ─────────────────────────────────────────────────────────────
 #  CONFIG
@@ -125,7 +129,9 @@ class PacketPulseHandler(BaseHTTPRequestHandler):
     # ── Preflight (browser CORS) ─────────────────────────────
     def do_OPTIONS(self):
         self.send_response(204)
-        _set_common_headers(self, "text/plain", 0)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
 
     # ── GET ──────────────────────────────────────────────────
@@ -135,46 +141,31 @@ class PacketPulseHandler(BaseHTTPRequestHandler):
     # ── POST ─────────────────────────────────────────────────
     def do_POST(self):
         self._dispatch("POST")
-
-    # ── ROUTER ───────────────────────────────────────────────
-    def _dispatch(self, method: str):
-        parsed = urlparse(self.path)
-        path   = parsed.path.rstrip("/") or "/"
-
-        # Attach parsed path and query to self so route modules can read them
-        self.parsed_path  = path
-        self.query_params = parse_qs(parsed.query)
-
-        log.info("%s %s", method, path)
-
-        try:
-            # Health check — useful for Docker health checks
-            if path == "/api/health" and method == "GET":
-                send_json(self, {"status": "ok"})
+        
+    def _dispatch(self, method):
+        """The 'Traffic Controller' for your backend."""
+        path = self.path.split('?')[0]
+        
+        # 1. Route to Auth
+        if path.startswith("/api/auth"):
+            # Pass the helper functions explicitly or ensure auth_routes imports them
+            if auth_handle(path, method, self):
                 return
 
-            # Delegate to route modules in priority order.
-            # Each handle() returns True if it owned the route, False otherwise.
-            if auth_routes.handle(path, method, self):
+        # 2. Route to Scans
+        if path.startswith("/api/scan"):
+            if scan_handle(path, method, self):
                 return
 
-            if scan_routes.handle(path, method, self):
-                return
+        # 3. Health Check
+        if path == "/api/health" and method == "GET":
+            send_json(self, {"status": "healthy", "version": "1.0.0"})
+            return
 
-            # Nothing matched
-            send_error(self, "Not found.", 404)
-
-        except AuthError as e:
-            # Any route that calls require_auth() and fails ends up here
-            log.info("Auth rejected [%s %s]: %s", method, path, e.message)
-            send_error(self, e.message, 401)
-
-        except Exception as e:
-            # Unexpected server error — log full traceback, send generic message
-            log.exception("Unhandled error [%s %s]", method, path)
-            send_error(self, "Internal server error.", 500)
-
-
+        # 4. 404 Fallback
+        send_error(self, f"Endpoint {path} not found", 404)
+        
+        
 # ─────────────────────────────────────────────────────────────
 #  STARTUP / SHUTDOWN
 # ─────────────────────────────────────────────────────────────
