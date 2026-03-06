@@ -631,7 +631,7 @@
 
       <div class="access-badge">Secure Access Portal</div>
 
-      <h1 class="form-title">Operator<br>Sign In.</h1>
+      <h1 class="form-title">Operator<br>Log In.</h1>
       <p class="form-sub">Authenticate to access the PacketPulse console.</p>
 
       <!-- Alert -->
@@ -640,7 +640,7 @@
         <span id="alert-msg">Invalid credentials. Access denied.</span>
       </div>
 
-      <form class="form" id="signin-form" onsubmit="handleSubmit(event)" novalidate>
+      <form class="form" id="login-form" onsubmit="handleSubmit(event)" novalidate>
 
         <!-- Operator ID -->
         <div class="field-group">
@@ -1004,44 +1004,54 @@
     // ─────────────────────────────────────────
     //  FORM SUBMIT
     // ─────────────────────────────────────────
-    function handleSubmit(e) {
+    async function handleSubmit(e) {
       e.preventDefault();
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
-      const mfaCode  = mfaInputs.map(i => i.value).join('');
 
-      // Clear previous errors
       clearErrors();
       let valid = true;
 
-      if (!username) {
-        showFieldError('username', 'Operator ID is required.');
-        valid = false;
-      }
-      if (!password) {
-        showFieldError('password', 'Passphrase is required.');
-        valid = false;
-      }
-      if (mfaCode.length < 6) {
-        showAlert('Please enter the full 6-digit two-factor code.');
-        valid = false;
-      }
+      if (!username) { showFieldError('username', 'Operator ID is required.'); valid = false; }
+      if (!password) { showFieldError('password', 'Passphrase is required.');  valid = false; }
       if (!valid) return;
 
-      // Simulate auth
-      const btn      = document.getElementById('submit-btn');
-      const btnText  = document.getElementById('btn-text');
-      btn.disabled   = true;
+      const btn     = document.getElementById('submit-btn');
+      const btnText = document.getElementById('btn-text');
+      btn.disabled  = true;
       btn.classList.add('loading');
       btnText.textContent = 'Authenticating…';
 
-      setTimeout(() => {
+      try {
+        //const resp = await fetch('/api/auth/login', { //for production
+        const resp = await fetch('http://localhost:8000/api/auth/login', { //for dev only
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ operator_id: username, password }),
+        });
+
+        const body = await resp.json();
+
+        if (resp.ok) {
+          // Store token and user info
+          localStorage.setItem('pp_token',        body.data.token);
+          localStorage.setItem('pp_operator_id',  body.data.operator_id);
+          localStorage.setItem('pp_display_name', body.data.display_name);
+          localStorage.setItem('pp_expires_at',   body.data.expires_at);
+          // Redirect to the console
+          window.location.href = 'app.html';
+        } else {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+          btnText.textContent = 'Authenticate';
+          showAlert(body.error || 'Authentication failed.');
+        }
+      } catch (err) {
         btn.classList.remove('loading');
         btn.disabled = false;
         btnText.textContent = 'Authenticate';
-        // Demo: always show error (replace with real auth)
-        showAlert('Invalid credentials or 2FA code. Access denied.');
-      }, 2000);
+        showAlert('Could not reach the server. Please try again.');
+      }
     }
 
     function showFieldError(id, msg) {

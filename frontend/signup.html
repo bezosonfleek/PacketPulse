@@ -621,7 +621,7 @@
 
   <!-- RIGHT PANEL — signup form -->
   <div class="right-panel">
-    <a href="login.html" class="back-link">← Log in</a>
+    <a href="login.html" class="back-link">← Sign in</a>
 
     <div class="form-wrap">
 
@@ -675,7 +675,7 @@
         </div>
 
         <div class="field-group">
-          <label class="field-label" for="username">Operator ID <span style="color:var(--dimmer)">(used to log in)</span></label>
+          <label class="field-label" for="username">Operator ID <span style="color:var(--dimmer)">(used to sign in)</span></label>
           <input class="field-input" type="text" id="username" placeholder="ada.lovelace" autocomplete="username" spellcheck="false" autocapitalize="none">
           <div class="field-hint err" id="username-hint">Operator ID is required.</div>
         </div>
@@ -802,12 +802,12 @@
         <h2 class="success-title">Access<br>Requested.</h2>
         <p class="success-sub">Your operator account has been submitted for review. You'll receive an activation email within 24 hours.</p>
         <div class="success-code" id="success-code">REF // PP-XXXX-XXXX</div>
-        <a href="login.html" class="btn-next" style="display:inline-block;text-align:center;text-decoration:none;padding:14px 40px;border-radius:4px;font-family:var(--mono);font-size:0.76rem;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;background:var(--cyan);color:var(--black);transition:background 0.2s;">Go to Log In →</a>
+        <a href="login.html" class="btn-next" style="display:inline-block;text-align:center;text-decoration:none;padding:14px 40px;border-radius:4px;font-family:var(--mono);font-size:0.76rem;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;background:var(--cyan);color:var(--black);transition:background 0.2s;">Go to Sign In →</a>
       </div>
 
-      <!-- Log in link -->
+      <!-- Sign in link -->
       <div class="login-link-row" id="login-link-row">
-        Already have access? &nbsp;<a href="login.html">Log in →</a>
+        Already have access? &nbsp;<a href="login.html">Sign in →</a>
       </div>
 
     </div>
@@ -1146,25 +1146,54 @@
     }
 
     // ── SUBMIT ──
-    function submitForm() {
+    async function submitForm() {
       if (!validateStep(4)) return;
       const btn = document.getElementById('submit-btn');
       const txt = document.getElementById('btn-text');
       btn.disabled = true;
       txt.textContent = 'Submitting…';
 
-      setTimeout(() => {
-        // Generate a fake ref code
-        const ref = 'PP-' + Math.random().toString(36).substring(2,6).toUpperCase() + '-' + Math.random().toString(36).substring(2,6).toUpperCase();
-        document.getElementById('success-code').textContent = 'REF // ' + ref;
+      const role  = document.querySelector('.role-card.selected')?.dataset?.role  || 'other';
+      const scale = document.querySelector('.size-chip.active')?.dataset?.size    || '';
 
-        // Hide step track + form, show success
-        document.getElementById('step-track').style.display = 'none';
-        document.getElementById('alert').classList.remove('show');
-        document.querySelectorAll('.form-page').forEach(p => p.classList.remove('active'));
-        document.getElementById('success-screen').classList.add('active');
-        document.getElementById('login-link-row').style.display = 'none';
-      }, 1800);
+      try {
+        //const resp = await fetch('/api/auth/signup', { //for-production
+        const resp = await fetch('http://localhost:8000/api/auth/signup', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operator_id:   val('username'),
+            email:         val('email'),
+            display_name:  `${val('fname')} ${val('lname')}`.trim(),
+            password:      document.getElementById('pw1').value,
+            role,
+            organisation:  val('org') || null,
+            network_scale: scale || null,
+          }),
+        });
+
+        const body = await resp.json();
+
+        if (resp.ok) {
+          // Show the reference code from the server
+          document.getElementById('success-code').textContent =
+            'REF // ' + (body.data.reference || 'PP-????-????');
+
+          document.getElementById('step-track').style.display = 'none';
+          document.getElementById('alert').classList.remove('show');
+          document.querySelectorAll('.form-page').forEach(p => p.classList.remove('active'));
+          document.getElementById('success-screen').classList.add('active');
+          document.getElementById('login-link-row').style.display = 'none';
+        } else {
+          btn.disabled = false;
+          txt.textContent = 'Request Access';
+          showAlert(body.error || 'Signup failed. Please try again.');
+        }
+      } catch (err) {
+        btn.disabled = false;
+        txt.textContent = 'Request Access';
+        showAlert('Could not reach the server. Please try again.');
+      }
     }
 
     // ── HELPERS ──

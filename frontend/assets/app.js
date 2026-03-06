@@ -1,5 +1,80 @@
 'use strict';
 
+const API_BASE = 'http://localhost:8000'; //remove during production
+
+// ══════════════════════════════════════════
+//  AUTH GUARD
+//  Runs immediately — redirects to login if
+//  no valid token is found in localStorage.
+// ══════════════════════════════════════════
+(function authGuard() {
+  const token     = localStorage.getItem('pp_token');
+  const expiresAt = localStorage.getItem('pp_expires_at');
+
+  if (!token) {
+    window.location.href = 'login.html';
+    return;
+  }
+
+  // Check expiry client-side as a fast gate
+  // (server also validates on every request)
+  if (expiresAt && new Date(expiresAt) < new Date()) {
+    localStorage.removeItem('pp_token');
+    localStorage.removeItem('pp_operator_id');
+    localStorage.removeItem('pp_display_name');
+    localStorage.removeItem('pp_expires_at');
+    window.location.href = 'login.html';
+  }
+})();
+
+// ══════════════════════════════════════════
+//  API HELPER
+//  Wraps fetch — automatically adds the
+//  Bearer token to every request.
+//  On 401, clears storage and redirects.
+// ══════════════════════════════════════════
+async function apiFetch(url, options = {}) {
+  const token = localStorage.getItem('pp_token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+
+  //const resp = await fetch(url, { ...options, headers }); //for production
+
+  const fullUrl = url.startsWith('http') ? url : API_BASE + url; //for dev only
+  const resp = await fetch(fullUrl, { ...options, headers });    //for dev only
+
+  if (resp.status === 401) {
+    // Token expired or revoked — send back to login
+    localStorage.removeItem('pp_token');
+    localStorage.removeItem('pp_operator_id');
+    localStorage.removeItem('pp_display_name');
+    localStorage.removeItem('pp_expires_at');
+    window.location.href = 'login.html';
+    return null;
+  }
+
+  return resp;
+}
+
+// ══════════════════════════════════════════
+//  SIGNOUT
+// ══════════════════════════════════════════
+async function signOut() {
+  try {
+    await apiFetch('/api/auth/signout', { method: 'POST' });
+  } catch (e) {
+    // Proceed even if request fails
+  }
+  localStorage.removeItem('pp_token');
+  localStorage.removeItem('pp_operator_id');
+  localStorage.removeItem('pp_display_name');
+  localStorage.removeItem('pp_expires_at');
+  window.location.href = 'login.html';
+}
+
 const CATEGORIES = {
   remote:   { label:'Remote Access', color:'#92400e', bg:'#fef3c7', border:'#f59e0b' },
   web:      { label:'Web',           color:'#1e40af', bg:'#eff6ff', border:'#3b82f6' },
@@ -196,12 +271,20 @@ async function init() {
   restoreSidebarState();
   initSidebarResize();
   startClock();
+
+  // Show operator name in UI if element exists
+  const displayName = localStorage.getItem('pp_display_name') ||
+                      localStorage.getItem('pp_operator_id')  || 'Operator';
+  setText('operator-name', displayName);
+
   try {
-    const r = await fetch('/api/init');
-    const d = await r.json();
+    const r = await apiFetch('/api/scan/init');
+    if (!r) return; // redirected to login
+    const body = await r.json();
+    const d = body.data || {};
     setText('lip', d.local_ip);
     setText('pip', d.public_ip);
-    document.getElementById('subnet').value = d.subnet_prefix;
+    document.getElementById('subnet').value = d.subnet_prefix || '';
   } catch(e) { console.error('Init failed:', e); }
 }
 
@@ -308,10 +391,21 @@ async function runScan() {
   }, Math.max(3000, (parseInt(end) - parseInt(start) + 1) * 12));
 
   try {
-    const url  = `/api/scan?target=${encodeURIComponent(subnet)}&start=${start}&end=${end}`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    lastResults = data;
+    const resp = await apiFetch('/api/scan/run', {
+      method: 'POST',
+      body: JSON.stringify({ subnet, start: parseInt(start), end: parseInt(end) }),
+    });
+    if (!resp) return; // redirected to login
+
+    const body = await resp.json();
+
+    if (!resp.ok) {
+      throw new Error(body.error || 'Scan failed.');
+    }
+
+    const data = body.data;
+    // Normalise to the shape the rest of app.js expects
+    lastResults = data.results || [];
 
     clearInterval(scanTimer);
     clearTimeout(phaseSwitch);
@@ -321,9 +415,9 @@ async function runScan() {
     setProgress(100, 'Scan complete!');
     document.getElementById('phase-3-desc').textContent = 'All results loaded';
 
-    renderResults(data);
+    renderResults(lastResults);
 
-    const alive = data.filter(h => h.is_up);
+    const alive = lastResults.filter(h => h.is_up);
     const totalPorts = alive.reduce((s,h) => s + h.ports.length, 0);
     showExportBanner(true, alive.length, totalPorts);
     setStatus('online', 'Online');
