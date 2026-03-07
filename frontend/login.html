@@ -631,7 +631,7 @@
 
       <div class="access-badge">Secure Access Portal</div>
 
-      <h1 class="form-title">Operator<br>Log In.</h1>
+      <h1 class="form-title">Operator<br>Sign In.</h1>
       <p class="form-sub">Authenticate to access the PacketPulse console.</p>
 
       <!-- Alert -->
@@ -1023,8 +1023,8 @@
       btnText.textContent = 'Authenticating…';
 
       try {
-        //const resp = await fetch('/api/auth/login', { //for production
-        const resp = await fetch('http://localhost:8000/api/auth/login', { //for dev only
+        //const resp = await fetch('/api/auth/login', { // for production
+        const resp = await fetch('http://localhost:8000/api/auth/login', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({ operator_id: username, password }),
@@ -1033,12 +1033,10 @@
         const body = await resp.json();
 
         if (resp.ok) {
-          // Store token and user info
           localStorage.setItem('pp_token',        body.data.token);
           localStorage.setItem('pp_operator_id',  body.data.operator_id);
           localStorage.setItem('pp_display_name', body.data.display_name);
           localStorage.setItem('pp_expires_at',   body.data.expires_at);
-          // Redirect to the console
           window.location.href = 'app.html';
         } else {
           btn.classList.remove('loading');

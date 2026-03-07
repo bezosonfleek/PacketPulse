@@ -1,6 +1,6 @@
 'use strict';
 
-const API_BASE = 'http://localhost:8000'; //remove during production
+const API_BASE = 'http://localhost:8000';
 
 // ══════════════════════════════════════════
 //  AUTH GUARD
@@ -16,8 +16,6 @@ const API_BASE = 'http://localhost:8000'; //remove during production
     return;
   }
 
-  // Check expiry client-side as a fast gate
-  // (server also validates on every request)
   if (expiresAt && new Date(expiresAt) < new Date()) {
     localStorage.removeItem('pp_token');
     localStorage.removeItem('pp_operator_id');
@@ -41,13 +39,10 @@ async function apiFetch(url, options = {}) {
     ...(options.headers || {}),
   };
 
-  //const resp = await fetch(url, { ...options, headers }); //for production
-
-  const fullUrl = url.startsWith('http') ? url : API_BASE + url; //for dev only
-  const resp = await fetch(fullUrl, { ...options, headers });    //for dev only
+  const fullUrl = url.startsWith('http') ? url : API_BASE + url;
+  const resp = await fetch(fullUrl, { ...options, headers });
 
   if (resp.status === 401) {
-    // Token expired or revoked — send back to login
     localStorage.removeItem('pp_token');
     localStorage.removeItem('pp_operator_id');
     localStorage.removeItem('pp_display_name');
@@ -64,7 +59,7 @@ async function apiFetch(url, options = {}) {
 // ══════════════════════════════════════════
 async function signOut() {
   try {
-    await apiFetch('/api/auth/signout', { method: 'POST' });
+    await apiFetch('/api/auth/logout', { method: 'POST' });
   } catch (e) {
     // Proceed even if request fails
   }
