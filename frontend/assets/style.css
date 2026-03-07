@@ -1,5 +1,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* ── CVE Badges ── */
+.td-cve       { vertical-align: middle; padding: 6px 10px; min-width: 120px; }
+.cve-none-cell{ color: var(--text4); }
+.cve-none     { color: var(--text4); font-size: 0.82rem; }
+.cve-badge {
+  display:       inline-block;
+  padding:       2px 7px;
+  border-radius: 5px;
+  font-size:     0.7rem;
+  font-weight:   700;
+  margin:        1px 2px;
+  cursor:        default;
+  white-space:   nowrap;
+  border:        1px solid transparent;
+}
+.sev-critical { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+.sev-high     { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
+.sev-medium   { background:#fffbeb; color:#92400e; border-color:#fde68a; }
+.sev-low      { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
+.sev-info     { background:#eff6ff; color:#1e40af; border-color:#bfdbfe; }
+
 /* ══════════════════════════════════════════
    LIGHT THEME
 ══════════════════════════════════════════ */
@@ -715,6 +736,21 @@ body {
 .os-macos   { background:#faf5ff; color:#7c3aed; border-color:#e9d5ff; }
 .os-network { background:#fff7ed; color:#c2410c; border-color:#fed7aa; }
 .os-unknown { background:var(--surface3); color:var(--text3); border-color:var(--bdr); }
+
+.mac-badge {
+  display:      inline-flex;
+  align-items:  center;
+  gap:          4px;
+  padding:      2px 8px;
+  border-radius:10px;
+  font-size:    0.72rem;
+  font-weight:  600;
+  margin-top:   3px;
+  background:   var(--surface3);
+  color:        var(--text2);
+  border:       1px solid var(--bdr);
+  font-family:  monospace;
+}
 
 .detail-os-row {
   display:     flex;

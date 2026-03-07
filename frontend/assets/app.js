@@ -504,14 +504,18 @@ function buildCard(host, idx) {
         const ban = p.banner
           ? `<td class="td-banner">${esc(p.banner)}</td>`
           : `<td class="td-banner empty">No banner</td>`;
+        const cves = (p.cves && p.cves.length)
+          ? '<td class="td-cve">' + p.cves.map(cv => '<span class="cve-badge sev-' + cv.severity + '" title="' + esc(cv.desc) + '">' + esc(cv.id) + '</span>').join(' ') + '</td>'
+          : '<td class="td-cve cve-none-cell"><span class="cve-none">—</span></td>';
         return `<tr>
           <td class="td-port">${p.port}</td>
           <td class="td-svc">${esc(p.label)}</td>
           <td class="td-cat"><span class="cat-tag" style="color:${c.color};background:${c.bg};border-color:${c.border}">${c.label}</span></td>
           ${ban}
+          ${cves}
         </tr>`;
       }).join('')
-    : `<tr><td colspan="4" style="padding:14px 0;color:var(--text4);font-style:italic;font-size:0.85rem">No ports in selected categories</td></tr>`;
+    : `<tr><td colspan="5" style="padding:14px 0;color:var(--text4);font-style:italic;font-size:0.85rem">No ports in selected categories</td></tr>`;
 
   card.innerHTML = `
     <div class="host-row" id="${cid}" onclick="toggle('${did}','${cid}')"
@@ -522,6 +526,7 @@ function buildCard(host, idx) {
         <div class="host-ip">${esc(host.ip)}</div>
         ${host.hostname ? `<div class="host-name">${esc(host.hostname)}</div>` : ''}
         ${host.os_guess ? `<div class="os-badge os-${esc(host.os_icon||'unknown')}" title="${esc(host.os_detail||'')}">${osIcon(host.os_icon)} ${esc(host.os_guess)}<span class="os-conf">${esc(host.os_confidence||'')}</span></div>` : ''}
+        ${host.mac ? `<div class="mac-badge" title="${esc(host.mac)}">🔌 ${esc(host.vendor || host.mac)}</div>` : ''}
       </div>
       <div class="port-tags">${tags}</div>
       <span class="chevron" id="ch-${idx}">&#9660;</span>
@@ -529,8 +534,11 @@ function buildCard(host, idx) {
     <div class="host-detail" id="${did}">
       <div class="detail-table-wrap">
         <table class="detail-table">
-          ${host.os_guess ? `<div class="detail-os-row"><span class="os-label">OS:</span> <span class="os-badge os-${esc(host.os_icon||'unknown')}" title="${esc(host.os_detail||'')}">${osIcon(host.os_icon)} ${esc(host.os_guess)}</span> <span style="font-size:0.75rem;color:var(--text3)">${esc(host.os_detail||'')}</span></div>` : ''}
-          <thead><tr><th>Port</th><th>Service</th><th>Category</th><th>Banner / Version</th></tr></thead>
+          ${(host.os_guess || host.mac) ? `<div class="detail-os-row">
+            ${host.os_guess ? `<span class="os-label">OS:</span> <span class="os-badge os-${esc(host.os_icon||'unknown')}" title="${esc(host.os_detail||'')}">${osIcon(host.os_icon)} ${esc(host.os_guess)}</span> <span style="font-size:0.75rem;color:var(--text3)">${esc(host.os_detail||'')}</span>` : ''}
+            ${host.mac ? `<span style="margin-left:16px"><span class="os-label">MAC:</span> <code style="font-size:0.8rem">${esc(host.mac)}</code>${host.vendor ? ` <span style="color:var(--text3);font-size:0.78rem">(${esc(host.vendor)})</span>` : ''}</span>` : ''}
+          </div>` : ''}
+          <thead><tr><th>Port</th><th>Service</th><th>Category</th><th>Banner / Version</th><th>CVEs</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -554,22 +562,32 @@ function toggle(did, cid) {
 function exportCSV() {
   const alive = lastResults.filter(h => h.is_up);
   if (!alive.length) return;
-  const rows = [['IP Address','Hostname','OS Guess','OS Confidence','OS Detail','Port','Service','Category','Banner']];
+  const rows = [['IP Address','Hostname','MAC Address','Vendor','OS Guess','OS Confidence','OS Detail','Port','Service','Category','Banner','CVE IDs','CVSS Scores','Severities']];
   alive.forEach(h => {
+    const mac      = h.mac            || '';
+    const vendor   = h.vendor         || '';
     const os       = h.os_guess      || '';
     const osConf   = h.os_confidence || '';
     const osDetail = h.os_detail     || '';
     if (!h.ports.length) {
-      rows.push([h.ip, h.hostname||'', os, osConf, osDetail, '', '', '', '']);
+      rows.push([h.ip, h.hostname||'', mac, vendor, os, osConf, osDetail, '', '', '', '', '', '', '']);
       return;
     }
-    h.ports.forEach((p, i) => rows.push([
-      h.ip, h.hostname||'',
-      i === 0 ? os       : '',
-      i === 0 ? osConf   : '',
-      i === 0 ? osDetail : '',
-      p.port, p.label, p.category, p.banner||''
-    ]));
+    h.ports.forEach((p, i) => {
+      const cveIds    = (p.cves||[]).map(cv => cv.id).join('; ');
+      const cveCvss   = (p.cves||[]).map(cv => cv.cvss).join('; ');
+      const cveSev    = (p.cves||[]).map(cv => cv.severity).join('; ');
+      rows.push([
+        h.ip, h.hostname||'',
+        i === 0 ? mac    : '',
+        i === 0 ? vendor : '',
+        i === 0 ? os       : '',
+        i === 0 ? osConf   : '',
+        i === 0 ? osDetail : '',
+        p.port, p.label, p.category, p.banner||'',
+        cveIds, cveCvss, cveSev
+      ]);
+    });
   });
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   download('packetpulse-scan.csv', csv, 'text/csv');
@@ -585,20 +603,32 @@ function exportPDF() {
 
   const hostRows = alive.map(h => {
     const ports = h.ports.length
-      ? h.ports.map(p =>
-          `<tr>
+      ? h.ports.map(p => {
+          const cveRows = (p.cves && p.cves.length)
+            ? p.cves.map(cv => {
+                const sevColour = {critical:'#dc2626',high:'#ea580c',medium:'#d97706',low:'#16a34a',info:'#2563eb'}[cv.severity] || '#64748b';
+                const sevBg     = {critical:'#fef2f2',high:'#fff7ed',medium:'#fffbeb',low:'#f0fdf4',info:'#eff6ff'}[cv.severity] || '#f8fafc';
+                return `<tr style="background:${sevBg}">
+                  <td style="padding:4px 10px 4px 24px;border:1px solid #e2e8f0;font-size:0.78em;color:#475569" colspan="1">↳</td>
+                  <td style="padding:4px 10px;border:1px solid #e2e8f0;font-size:0.78em;font-weight:700;color:${sevColour}" colspan="1">${esc(cv.id)}</td>
+                  <td style="padding:4px 10px;border:1px solid #e2e8f0;font-size:0.78em" colspan="1"><span style="background:${sevColour};color:#fff;padding:1px 6px;border-radius:4px;font-size:0.85em;font-weight:700">${esc(cv.severity.toUpperCase())}</span> CVSS ${cv.cvss}</td>
+                  <td style="padding:4px 10px;border:1px solid #e2e8f0;font-size:0.78em;color:#475569" colspan="1">${esc(cv.desc)}</td>
+                </tr>`;
+              }).join('')
+            : '';
+          return `<tr>
             <td style="padding:5px 10px;border:1px solid #e2e8f0">${p.port}</td>
             <td style="padding:5px 10px;border:1px solid #e2e8f0">${esc(p.label)}</td>
             <td style="padding:5px 10px;border:1px solid #e2e8f0">${esc(p.category)}</td>
             <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:0.8em;color:#64748b">${esc(p.banner||'—')}</td>
-          </tr>`
-        ).join('')
+          </tr>${cveRows}`;
+        }).join('')
       : `<tr><td colspan="4" style="padding:5px 10px;border:1px solid #e2e8f0;color:#94a3b8;font-style:italic">No open ports detected</td></tr>`;
 
     return `
       <div style="margin-bottom:20px;page-break-inside:avoid">
         <div style="background:#1e40af;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-family:monospace;font-size:0.95em;font-weight:600;display:flex;justify-content:space-between;align-items:center">
-          <span>${esc(h.ip)}${h.hostname ? ' — ' + esc(h.hostname) : ''}</span>
+          <span>${esc(h.ip)}${h.hostname ? ' — ' + esc(h.hostname) : ''}${h.mac ? ' <span style="font-size:0.8em;opacity:0.75;font-weight:400">[' + esc(h.mac) + (h.vendor ? ' · ' + esc(h.vendor) : '') + ']</span>' : ''}</span>
           ${h.os_guess ? `<span style="font-size:0.8em;font-weight:400;opacity:0.9;font-family:sans-serif">${osIcon(h.os_icon)} ${esc(h.os_guess)} <span style="opacity:0.7;font-size:0.85em">(${esc(h.os_confidence||'')})</span></span>` : ''}
         </div>
         ${h.os_guess ? `<div style="padding:7px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;font-size:0.8em;display:flex;gap:16px">
@@ -676,7 +706,7 @@ function exportPDF() {
   ${hostRows}
 
   <div style="margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:0.75em;color:#94a3b8;text-align:center">
-    PacketPulse Network Scanner &bull; Pure Python &bull; &copy; Geoffrey Sakora &bull; ${now}
+    PacketPulse Network Scanner &bull; Pure Python &bull; No frameworks &bull; ${now}
   </div>
 </body>
 </html>`;
