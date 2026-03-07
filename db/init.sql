@@ -5,12 +5,14 @@
 --  tables they reference.
 -- ============================================================
 
+
 -- ────────────────────────────────────────────────────────────
 --  EXTENSIONS
 --  pgcrypto gives us gen_random_uuid() for UUID primary keys.
 --  Available in standard Postgres — no extra install needed.
 -- ────────────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 
 -- ────────────────────────────────────────────────────────────
 --  TABLE: users
@@ -52,6 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_users_operator_id ON users (operator_id);
 CREATE INDEX IF NOT EXISTS idx_users_email       ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_status      ON users (status);
 
+
 -- ────────────────────────────────────────────────────────────
 --  TABLE: sessions
 --  One row per active login session.
@@ -73,6 +76,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_token_hash  ON sessions (token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id     ON sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at  ON sessions (expires_at);
+
 
 -- ────────────────────────────────────────────────────────────
 --  TABLE: scans
@@ -109,6 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_scans_user_id    ON scans (user_id);
 CREATE INDEX IF NOT EXISTS idx_scans_started_at ON scans (started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_scans_status     ON scans (status);
 
+
 -- ────────────────────────────────────────────────────────────
 --  TABLE: scan_hosts
 --  One row per IP address evaluated in a scan.
@@ -139,6 +144,7 @@ CREATE INDEX IF NOT EXISTS idx_scan_hosts_is_up      ON scan_hosts (is_up);
 -- "find all scans where port 445 was open" without scanning every row
 CREATE INDEX IF NOT EXISTS idx_scan_hosts_ports_gin  ON scan_hosts USING GIN (ports);
 
+
 -- ────────────────────────────────────────────────────────────
 --  TABLE: login_attempts
 --  Audit log of every sign-in attempt, successful or not.
@@ -162,6 +168,7 @@ CREATE INDEX IF NOT EXISTS idx_login_attempts_ip          ON login_attempts (ip_
 CREATE INDEX IF NOT EXISTS idx_login_attempts_operator_id ON login_attempts (operator_id);
 CREATE INDEX IF NOT EXISTS idx_login_attempts_attempted_at ON login_attempts (attempted_at DESC);
 
+
 -- ────────────────────────────────────────────────────────────
 --  FUNCTION + TRIGGER: auto-update updated_at on users
 --  Keeps the updated_at column accurate without the app
@@ -180,6 +187,7 @@ CREATE TRIGGER trg_users_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
+
 -- ────────────────────────────────────────────────────────────
 --  FUNCTION: clean_expired_sessions()
 --  Call this on a schedule (e.g. daily) to purge sessions that
@@ -196,6 +204,7 @@ BEGIN
     RETURN deleted;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ────────────────────────────────────────────────────────────
 --  FUNCTION: is_account_locked(p_operator_id)
@@ -219,6 +228,7 @@ BEGIN
     RETURN (v_locked_until IS NOT NULL AND v_locked_until > NOW());
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ────────────────────────────────────────────────────────────
 --  FUNCTION: record_failed_login(p_operator_id, p_threshold)
@@ -248,6 +258,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 -- ────────────────────────────────────────────────────────────
 --  FUNCTION: clear_failed_logins(p_operator_id)
 --  Resets the counter and removes the lock after a
@@ -263,6 +274,7 @@ BEGIN
     WHERE  operator_id = p_operator_id;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- ────────────────────────────────────────────────────────────
 --  SEED: default admin account
@@ -289,3 +301,17 @@ VALUES (
     'active'
 )
 ON CONFLICT (operator_id) DO NOTHING;
+
+
+-- ────────────────────────────────────────────────────────────
+--  MIGRATION: email verification & password reset tokens
+-- ────────────────────────────────────────────────────────────
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS email_verified      BOOLEAN     NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS email_verify_token  VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS email_verify_expiry TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS pw_reset_token      VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS pw_reset_expiry     TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_users_email_verify_token ON users (email_verify_token);
+CREATE INDEX IF NOT EXISTS idx_users_pw_reset_token     ON users (pw_reset_token);
