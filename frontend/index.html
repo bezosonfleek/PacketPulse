@@ -707,6 +707,16 @@
       nav .nav-right .nav-link { display: none; }
     }
   </style>
+  <script>
+    // If already logged in, skip the landing page and go straight to the app
+    (function() {
+      const token     = localStorage.getItem('pp_token');
+      const expiresAt = localStorage.getItem('pp_expires_at');
+      if (token && (!expiresAt || new Date(expiresAt) > new Date())) {
+        window.location.replace('app.html');
+      }
+    })();
+  </script>
 </head>
 <body>
 
