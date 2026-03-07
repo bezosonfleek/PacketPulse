@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PacketPulse &mdash; Console</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="layout">
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<aside class="sidebar" id="sidebar">
+
+  <!-- Collapse toggle -->
+  <button class="collapse-btn" id="collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+    <span class="cb-label">Collapse</span>
+    <span class="cb-icon">&#8249;</span>
+  </button>
+
+  <div class="sidebar-content" id="sidebar-content">
+    <div class="sidebar-top">
+      <div class="logo">Packet<em>Pulse</em></div>
+      <div class="logo-sub">Network Scanner</div>
+      <div class="sidebar-status" id="status-pill">
+        <div class="s-dot online" id="s-dot"></div>
+        <span class="s-label" id="s-label">Online</span>
+        <span class="s-time" id="s-time"></span>
+      </div>
+    </div>
+
+    <!-- Operator identity -->
+    <div class="sidebar-section">
+      <div class="s-section-title">Operator</div>
+      <div class="net-item">
+        <div class="net-label">Signed in as</div>
+        <div class="net-val accent" id="operator-name">—</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="s-section-title">Network Info</div>
+      <div class="net-item">
+        <div class="net-label">Internal IP</div>
+        <div class="net-val accent" id="lip">Detecting&hellip;</div>
+      </div>
+      <div class="net-item">
+        <div class="net-label">Public IP</div>
+        <div class="net-val" id="pip">Detecting&hellip;</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="s-section-title">Last Scan</div>
+      <div class="stat-row">
+        <div class="stat-block">
+          <div class="stat-num green" id="alive-count">&mdash;</div>
+          <div class="stat-lbl">Hosts Alive</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num red" id="port-count">&mdash;</div>
+          <div class="stat-lbl">Open Ports</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">
+        <span id="theme-label">Switch to Dark Mode</span>
+        <span class="icon" id="theme-icon">&#9790;</span>
+      </button>
+    </div>
+
+    <!-- Signout -->
+    <div class="sidebar-section">
+      <button class="theme-btn" onclick="signOut()" style="color:#ef4444;border-color:rgba(239,68,68,0.25);">
+        <span>Sign Out</span>
+        <span class="icon">&#8594;</span>
+      </button>
+    </div>
+
+    <div class="sidebar-bottom">
+      PacketPulse &bull; Python Powered &bull; &copy; Geoffrey Sakora 2026
+    </div>
+  </div><!-- /sidebar-content -->
+</aside>
+
+<!-- ═══════ RESIZE HANDLE ═══════ -->
+<div class="resize-handle" id="resize-handle" title="Drag to resize sidebar"></div>
+
+<!-- ═══════ MAIN ═══════ -->
+<main class="main">
+
+  <div class="page-header">
+    <div class="page-title">Network Scan</div>
+    <div class="page-sub">Discover live hosts and open services on your network</div>
+  </div>
+
+  <!-- Scan config -->
+  <div class="card scan-card">
+    <div class="card-header">
+      <span class="card-title">Scan Configuration</span>
+    </div>
+    <div class="card-body">
+      <div class="input-row">
+        <div class="field grow">
+          <label for="subnet">Subnet Prefix</label>
+          <input type="text" id="subnet" placeholder="e.g. 192.168.1" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field sm">
+          <label for="range-start">From</label>
+          <input type="number" id="range-start" value="1" min="1" max="254">
+        </div>
+        <div class="field sm">
+          <label for="range-end">To</label>
+          <input type="number" id="range-end" value="254" min="1" max="254">
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="btn-scan" id="scan-btn" onclick="runScan()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            Run Scan
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Filter:</span>
+      <div class="cat-chip active" data-cat="remote"><div class="chip-dot"></div>Remote</div>
+      <div class="cat-chip active" data-cat="web"><div class="chip-dot"></div>Web</div>
+      <div class="cat-chip active" data-cat="file"><div class="chip-dot"></div>File Transfer</div>
+      <div class="cat-chip active" data-cat="database"><div class="chip-dot"></div>Database</div>
+      <div class="cat-chip active" data-cat="mail"><div class="chip-dot"></div>Mail</div>
+      <div class="cat-chip active" data-cat="infra"><div class="chip-dot"></div>Infrastructure</div>
+      <div class="cat-chip active" data-cat="devops"><div class="chip-dot"></div>DevOps</div>
+      <div class="cat-chip active" data-cat="proxy"><div class="chip-dot"></div>Proxy/VPN</div>
+      <div class="cat-chip active" data-cat="danger"><div class="chip-dot"></div>&#9888; Danger</div>
+    </div>
+  </div>
+
+  <!-- Progress card -->
+  <div class="card progress-card hidden" id="progress-card">
+    <div class="progress-phases">
+      <div class="phase-step" id="phase-1">
+        <div class="phase-num">1</div>
+        <div class="phase-info">
+          <div class="phase-name">Host Discovery</div>
+          <div class="phase-desc" id="phase-1-desc">Sweeping for live hosts&hellip;</div>
+        </div>
+      </div>
+      <div class="phase-step" id="phase-2">
+        <div class="phase-num">2</div>
+        <div class="phase-info">
+          <div class="phase-name">Port Scanning</div>
+          <div class="phase-desc" id="phase-2-desc">Waiting&hellip;</div>
+        </div>
+      </div>
+      <div class="phase-step" id="phase-3">
+        <div class="phase-num">3</div>
+        <div class="phase-info">
+          <div class="phase-name">Complete</div>
+          <div class="phase-desc" id="phase-3-desc">Results ready</div>
+        </div>
+      </div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-foot">
+        <span class="progress-msg" id="progress-msg">Initialising scan&hellip;</span>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export banner -->
+  <div class="export-banner hidden" id="export-banner">
+    <div class="export-icon">&#8659;</div>
+    <div class="export-text">
+      <div class="export-title">Download Scan Results</div>
+      <div class="export-sub" id="export-sub">Choose a format to save your results</div>
+    </div>
+    <div class="export-btns">
+      <button class="btn-dl csv" onclick="exportCSV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Download CSV
+      </button>
+      <button class="btn-dl json" onclick="exportJSON()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Download JSON
+      </button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-hdr">
+    <div class="results-title">Discovered Hosts</div>
+    <div class="results-meta" id="results-meta"></div>
+  </div>
+
+  <div id="results">
+    <div class="empty-state">
+      <div class="empty-icon">&#128225;</div>
+      <div class="empty-title">No scan run yet</div>
+      <div class="empty-sub">Configure your target above and click Run Scan to begin.</div>
+    </div>
+  </div>
+
+</main>
+</div><!-- /layout -->
+
+<script src="/assets/app.js"></script>
+</body>
+</html>
