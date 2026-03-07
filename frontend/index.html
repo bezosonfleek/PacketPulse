@@ -707,27 +707,17 @@
       nav .nav-right .nav-link { display: none; }
     }
   </style>
-  <script>
-    // If already logged in, skip the landing page and go straight to the app
-    (function() {
-      const token     = localStorage.getItem('pp_token');
-      const expiresAt = localStorage.getItem('pp_expires_at');
-      if (token && (!expiresAt || new Date(expiresAt) > new Date())) {
-        window.location.replace('app.html');
-      }
-    })();
-  </script>
 </head>
 <body>
 
   <!-- NAV -->
   <nav>
-    <div class="nav-logo">Packet<em>Pulse</em></div>
+    <a href="index.html" class="nav-logo" style="text-decoration:none">Packet<em>Pulse</em></a> 
     <div class="nav-right">
       <a href="#features" class="nav-link">Features</a>
       <a href="#stack" class="nav-link">Stack</a>
       <a href="#start" class="nav-link">Docs</a>
-      <a href="login.html" class="nav-cta">Launch Console</a>
+      <a href="login.html" class="nav-cta" onclick="launchConsole(event)">Launch Console</a>
     </div>
   </nav>
 
@@ -751,7 +741,7 @@
         Discover hosts, fingerprint services, and expose open ports — no agents, no dependencies, no noise.
       </p>
       <div class="hero-actions">
-        <a href="login.html" class="btn-primary">Launch Console</a>
+        <a href="login.html" class="btn-primary" onclick="launchConsole(event)">Launch Console</a>
         <a href="#features" class="btn-ghost">Explore Features ↓</a>
       </div>
     </div>
@@ -943,7 +933,7 @@
       PacketPulse runs where you run it.
     </p>
     <div class="cta-btns">
-      <a href="login.html" class="btn-lg fill">Launch Console</a>
+      <a href="login.html" class="btn-lg fill" onclick="launchConsole(event)">Launch Console</a>
       <a href="#" class="btn-lg outline">Read the Docs</a>
     </div>
   </section>
@@ -957,12 +947,23 @@
     <div class="foot-links">
       <a href="#features" class="foot-link">Features</a>
       <a href="#stack" class="foot-link">Stack</a>
-      <a href="login.html" class="foot-link">Console</a>
+      <a href="login.html" class="foot-link" onclick="launchConsole(event)">Console</a>
       <span class="foot-link" style="cursor:default">PP // 2026</span>
     </div>
   </footer>
 
   <script>
+    function launchConsole(e) {
+      const token     = localStorage.getItem('pp_token');
+      const expiresAt = localStorage.getItem('pp_expires_at');
+      const loggedIn  = token && (!expiresAt || new Date(expiresAt) > new Date());
+      if (loggedIn) {
+        e.preventDefault();
+        window.location.href = 'app.html';
+      }
+      // else follow the href naturally → login.html
+    }
+
     // Scroll reveal
     const reveals = document.querySelectorAll('.reveal');
     const observer = new IntersectionObserver(entries => {
