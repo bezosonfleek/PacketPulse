@@ -1,0 +1,142 @@
+# ──────────────────────────────────────────────────────────────
+#  PacketPulse — Docker Compose
+#
+#  docker-compose.yml is the orchestration file.
+#  It defines all services (containers), how they're built,
+#  how they connect to each other, and what persists.
+#
+#  SERVICES:
+#    db       — Postgres database
+#    backend  — Python HTTP server
+#    frontend — Nginx static server + API proxy
+#
+#  NETWORKS:
+#    packetpulse-net — a private Docker bridge network.
+#    All three containers join this network. They can reach
+#    each other by service name (db, backend, frontend).
+#    Nothing outside Docker can reach them unless you
+#    explicitly publish a port.
+#
+#  VOLUMES:
+#    postgres-data — a named volume for Postgres data files.
+#    Named volumes persist across container restarts and
+#    docker-compose down. Your data survives unless you
+#    explicitly run: docker-compose down -v
+# ──────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+
+  # ── DATABASE ───────────────────────────────────────────────
+  # postgres:15-alpine = Postgres 15 on Alpine Linux (~240MB)
+  #
+  # POSTGRES_DB / USER / PASSWORD:
+  #   These env vars are read by the official Postgres image
+  #   on first start to create the database and user.
+  #   They must match what db.py reads from .env.
+  #
+  # volumes:
+  #   postgres-data:/var/lib/postgresql/data
+  #   Postgres stores all data in /var/lib/postgresql/data
+  #   inside the container. Mapping it to a named volume means data survives container restarts and rebuilds.
+
+  #   ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  #   Any .sql files in /docker-entrypoint-initdb.d/ are automatically executed by Postgres on FIRST start only
+  #   (when the data directory is empty). This creates all your tables automatically.
+
+  # healthcheck:
+  #   Docker will periodically run pg_isready to check if Postgres is accepting connections. Other services use
+  #   depends_on: condition: service_healthy to wait for this. Without healthcheck, the backend might start before
+  #   Postgres is ready and crash.
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME}
+      POSTGRES_USER:     ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - packetpulse-net
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+
+  # ── BACKEND ────────────────────────────────────────────────
+  # build: ./backend
+  #   Docker reads backend/Dockerfile and builds the image.
+  #   The build context is the backend/ directory, so COPY .
+  #   in the Dockerfile copies backend/ contents.
+  #
+  # env_file: .env
+  #   Loads all variables from .env into the container's
+  #   environment. This is how DB_HOST, JWT_SECRET, SMTP_*
+  #   etc. reach the Python process without being hardcoded.
+  #
+  # depends_on: db: condition: service_healthy
+  #   Docker won't start the backend until the db healthcheck
+  #   passes. This prevents "connection refused" crashes on
+  #   startup when Postgres is still initialising.
+  #
+  # networks:
+  #   Only on the internal network — not exposed to host.
+  #   Nginx proxies to it internally via http://backend:8000.
+  #   The backend port is intentionally NOT published here.
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - packetpulse-net
+
+  # ── FRONTEND ───────────────────────────────────────────────
+  # build: ./frontend
+  #   Docker reads frontend/Dockerfile and builds the image.
+  #   The build context is the frontend/ directory.
+  #
+  # ports: "3000:80"
+  #   Maps port 80 inside the container (Nginx) to port 3000
+  #   on your host machine. You access the app at:
+  #   http://localhost:3000
+  #
+  #   Format is always "HOST_PORT:CONTAINER_PORT"
+  #   To use port 80 on your host (no port in URL), change to:
+  #   "80:80" — but requires no other service using port 80.
+  #
+  # depends_on: backend
+  #   Nginx starts after backend is up. Technically Nginx
+  #   can start anytime since it just proxies, but this
+  #   ensures a clean startup order.
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - packetpulse-net
+
+
+# ── NAMED VOLUMES ──────────────────────────────────────────
+# Declaring the volume here registers it with Docker.
+# Docker manages its location on the host filesystem.
+# You can inspect it with: docker volume inspect postgres-data
+volumes:
+  postgres-data:
+
+# ── NETWORKS ───────────────────────────────────────────────
+# bridge = the default network driver.
+# Creates a private virtual network. Containers on it
+# can talk to each other. Traffic doesn't leave the host.
+networks:
+  packetpulse-net:
+    driver: bridge
