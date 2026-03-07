@@ -683,7 +683,55 @@ body {
   border-color: #fff;
 }
 .btn-dl.json:hover { background: #eff6ff; }
+.btn-dl.pdf {
+  background: #fef2f2;
+  color:      #991b1b;
+  border-color: #fecaca;
+}
+.btn-dl.pdf:hover { background: #fee2e2; border-color: #f87171; }
 .btn-dl svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* ── OS Fingerprint badges ── */
+.os-badge {
+  display:      inline-flex;
+  align-items:  center;
+  gap:          4px;
+  padding:      2px 8px;
+  border-radius:10px;
+  font-size:    0.72rem;
+  font-weight:  600;
+  margin-top:   3px;
+  border:       1px solid transparent;
+}
+.os-badge .os-conf {
+  font-weight: 400;
+  opacity: 0.7;
+  margin-left: 3px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+.os-windows { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+.os-linux   { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+.os-macos   { background:#faf5ff; color:#7c3aed; border-color:#e9d5ff; }
+.os-network { background:#fff7ed; color:#c2410c; border-color:#fed7aa; }
+.os-unknown { background:var(--surface3); color:var(--text3); border-color:var(--bdr); }
+
+.detail-os-row {
+  display:     flex;
+  align-items: center;
+  gap:         8px;
+  padding:     8px 14px;
+  background:  var(--surface2);
+  border-bottom: 1px solid var(--bdr);
+  font-size:   0.82rem;
+}
+.os-label {
+  font-weight: 600;
+  color:       var(--text3);
+  font-size:   0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
 /* ══════════════════════════════════════════
    RESULTS HEADER

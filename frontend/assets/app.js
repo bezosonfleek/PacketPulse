@@ -521,6 +521,7 @@ function buildCard(host, idx) {
       <div class="host-meta">
         <div class="host-ip">${esc(host.ip)}</div>
         ${host.hostname ? `<div class="host-name">${esc(host.hostname)}</div>` : ''}
+        ${host.os_guess ? `<div class="os-badge os-${esc(host.os_icon||'unknown')}" title="${esc(host.os_detail||'')}">${osIcon(host.os_icon)} ${esc(host.os_guess)}<span class="os-conf">${esc(host.os_confidence||'')}</span></div>` : ''}
       </div>
       <div class="port-tags">${tags}</div>
       <span class="chevron" id="ch-${idx}">&#9660;</span>
@@ -528,6 +529,7 @@ function buildCard(host, idx) {
     <div class="host-detail" id="${did}">
       <div class="detail-table-wrap">
         <table class="detail-table">
+          ${host.os_guess ? `<div class="detail-os-row"><span class="os-label">OS:</span> <span class="os-badge os-${esc(host.os_icon||'unknown')}" title="${esc(host.os_detail||'')}">${osIcon(host.os_icon)} ${esc(host.os_guess)}</span> <span style="font-size:0.75rem;color:var(--text3)">${esc(host.os_detail||'')}</span></div>` : ''}
           <thead><tr><th>Port</th><th>Service</th><th>Category</th><th>Banner / Version</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -552,13 +554,136 @@ function toggle(did, cid) {
 function exportCSV() {
   const alive = lastResults.filter(h => h.is_up);
   if (!alive.length) return;
-  const rows = [['IP Address','Hostname','Port','Service','Category','Banner']];
+  const rows = [['IP Address','Hostname','OS Guess','OS Confidence','OS Detail','Port','Service','Category','Banner']];
   alive.forEach(h => {
-    if (!h.ports.length) { rows.push([h.ip, h.hostname||'','','','','']); return; }
-    h.ports.forEach(p => rows.push([h.ip, h.hostname||'', p.port, p.label, p.category, p.banner||'']));
+    const os       = h.os_guess      || '';
+    const osConf   = h.os_confidence || '';
+    const osDetail = h.os_detail     || '';
+    if (!h.ports.length) {
+      rows.push([h.ip, h.hostname||'', os, osConf, osDetail, '', '', '', '']);
+      return;
+    }
+    h.ports.forEach((p, i) => rows.push([
+      h.ip, h.hostname||'',
+      i === 0 ? os       : '',
+      i === 0 ? osConf   : '',
+      i === 0 ? osDetail : '',
+      p.port, p.label, p.category, p.banner||''
+    ]));
   });
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   download('packetpulse-scan.csv', csv, 'text/csv');
+}
+
+function exportPDF() {
+  const alive = lastResults.filter(h => h.is_up);
+  if (!alive.length) return;
+
+  const operator = localStorage.getItem('pp_display_name') || localStorage.getItem('pp_operator_id') || 'Unknown';
+  const now      = new Date().toLocaleString();
+  const totalPorts = alive.reduce((s, h) => s + h.ports.length, 0);
+
+  const hostRows = alive.map(h => {
+    const ports = h.ports.length
+      ? h.ports.map(p =>
+          `<tr>
+            <td style="padding:5px 10px;border:1px solid #e2e8f0">${p.port}</td>
+            <td style="padding:5px 10px;border:1px solid #e2e8f0">${esc(p.label)}</td>
+            <td style="padding:5px 10px;border:1px solid #e2e8f0">${esc(p.category)}</td>
+            <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:0.8em;color:#64748b">${esc(p.banner||'—')}</td>
+          </tr>`
+        ).join('')
+      : `<tr><td colspan="4" style="padding:5px 10px;border:1px solid #e2e8f0;color:#94a3b8;font-style:italic">No open ports detected</td></tr>`;
+
+    return `
+      <div style="margin-bottom:20px;page-break-inside:avoid">
+        <div style="background:#1e40af;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-family:monospace;font-size:0.95em;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+          <span>${esc(h.ip)}${h.hostname ? ' — ' + esc(h.hostname) : ''}</span>
+          ${h.os_guess ? `<span style="font-size:0.8em;font-weight:400;opacity:0.9;font-family:sans-serif">${osIcon(h.os_icon)} ${esc(h.os_guess)} <span style="opacity:0.7;font-size:0.85em">(${esc(h.os_confidence||'')})</span></span>` : ''}
+        </div>
+        ${h.os_guess ? `<div style="padding:7px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;font-size:0.8em;display:flex;gap:16px">
+          <span><strong style="color:#475569;text-transform:uppercase;font-size:0.85em;letter-spacing:0.05em">OS</strong>&nbsp;&nbsp;${osIcon(h.os_icon)} ${esc(h.os_guess)}</span>
+          <span><strong style="color:#475569;text-transform:uppercase;font-size:0.85em;letter-spacing:0.05em">Confidence</strong>&nbsp;&nbsp;${esc(h.os_confidence||'')}</span>
+          <span style="color:#64748b">${esc(h.os_detail||'')}</span>
+        </div>` : ''}
+        <table style="width:100%;border-collapse:collapse;font-size:0.875em">
+          <thead>
+            <tr style="background:#f1f5f9">
+              <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:left;width:80px">Port</th>
+              <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:left">Service</th>
+              <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:left">Category</th>
+              <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:left">Banner</th>
+            </tr>
+          </thead>
+          <tbody>${ports}</tbody>
+        </table>
+      </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PacketPulse Scan Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 32px; font-size: 14px; }
+    @media print {
+      body { padding: 16px; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #2563eb">
+    <div>
+      <div style="font-size:1.5em;font-weight:800;color:#1e293b">Packet<span style="color:#2563eb">Pulse</span></div>
+      <div style="font-size:0.8em;color:#64748b;margin-top:2px">Network Scan Report</div>
+    </div>
+    <div style="text-align:right;font-size:0.8em;color:#64748b">
+      <div>Generated: ${now}</div>
+      <div>Operator: ${esc(operator)}</div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div style="display:flex;gap:16px;margin-bottom:28px">
+    <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px">
+      <div style="font-size:1.6em;font-weight:700;color:#2563eb">${alive.length}</div>
+      <div style="font-size:0.75em;color:#64748b;text-transform:uppercase;letter-spacing:0.05em">Hosts Alive</div>
+    </div>
+    <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px">
+      <div style="font-size:1.6em;font-weight:700;color:#dc2626">${totalPorts}</div>
+      <div style="font-size:0.75em;color:#64748b;text-transform:uppercase;letter-spacing:0.05em">Open Ports</div>
+    </div>
+    <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 18px">
+      <div style="font-size:1.6em;font-weight:700;color:#059669">${lastResults.length}</div>
+      <div style="font-size:0.75em;color:#64748b;text-transform:uppercase;letter-spacing:0.05em">Hosts Scanned</div>
+    </div>
+  </div>
+
+  <!-- Print button -->
+  <div class="no-print" style="margin-bottom:24px">
+    <button onclick="window.print()" style="padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:0.9em;font-weight:600;cursor:pointer">
+      🖨 Print / Save as PDF
+    </button>
+    <span style="margin-left:12px;font-size:0.8em;color:#94a3b8">Use your browser's print dialog — select "Save as PDF"</span>
+  </div>
+
+  <!-- Hosts -->
+  <h2 style="font-size:1em;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:14px">Discovered Hosts</h2>
+  ${hostRows}
+
+  <div style="margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:0.75em;color:#94a3b8;text-align:center">
+    PacketPulse Network Scanner &bull; Pure Python &bull; &copy; Geoffrey Sakora &bull; ${now}
+  </div>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 function exportJSON() {
@@ -585,6 +710,17 @@ function download(name, content, mime) {
 // ══════════════════════════════════════════
 //  UTILS
 // ══════════════════════════════════════════
+function osIcon(icon) {
+  const icons = {
+    windows: '🪟',
+    linux:   '🐧',
+    macos:   '🍎',
+    network: '🔌',
+    unknown: '❓',
+  };
+  return icons[icon] || '❓';
+}
+
 function setText(id, val) {
   const el = document.getElementById(id);
   if (el) el.textContent = val;
