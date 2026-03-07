@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PacketPulse — Scan History</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 800px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--bdr);
+      border-radius: 10px;
+      padding: 20px 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .stat-card .num { font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 6px; }
+    .stat-card .lbl { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-bar input {
+      flex: 1; min-width: 200px; padding: 9px 14px;
+      border: 1px solid var(--bdr); border-radius: 6px;
+      background: var(--surface); color: var(--text); font-size: 0.875rem; font-family: inherit;
+    }
+    .filter-bar input:focus { outline: none; border-color: var(--accent); }
+    .filter-bar select {
+      padding: 9px 14px; border: 1px solid var(--bdr); border-radius: 6px;
+      background: var(--surface); color: var(--text); font-size: 0.875rem; font-family: inherit; cursor: pointer;
+    }
+    .table-wrap { background: var(--surface); border: 1px solid var(--bdr); border-radius: 10px; box-shadow: var(--shadow-sm); overflow: hidden; }
+    .history-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .history-table th { background: var(--surface2); color: var(--text3); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--bdr); }
+    .history-table td { padding: 13px 16px; border-bottom: 1px solid var(--bdr); color: var(--text2); vertical-align: middle; }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: var(--surface2); }
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--accent); }
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .badge-complete { background: var(--green-bg); color: var(--green); }
+    .badge-running  { background: var(--accent-dim); color: var(--accent); }
+    .badge-failed   { background: var(--red-bg); color: var(--red); }
+    .btn-view { padding: 5px 12px; border-radius: 5px; border: 1px solid var(--bdr); background: var(--surface); color: var(--text2); font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .btn-view:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .detail-panel { background: var(--surface); border: 1px solid var(--bdr); border-radius: 10px; box-shadow: var(--shadow-md); padding: 24px; margin-top: 20px; display: none; }
+    .detail-panel.show { display: block; }
+    .detail-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .detail-hdr h3 { font-size: 1rem; font-weight: 700; color: var(--text); margin: 0; }
+    .btn-close { background: none; border: none; color: var(--text3); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+    .btn-close:hover { background: var(--surface2); color: var(--text); }
+    .host-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 12px; margin-top: 12px; }
+    .host-card { border: 1px solid var(--bdr); border-radius: 8px; padding: 14px; background: var(--surface2); }
+    .host-ip { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--accent); font-size: 0.9rem; margin-bottom: 6px; }
+    .port-tag { display: inline-block; padding: 2px 7px; border-radius: 4px; background: var(--accent-dim); color: var(--accent); font-size: 0.72rem; font-family: 'JetBrains Mono', monospace; margin: 2px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .empty-state h3 { font-size: 1rem; color: var(--text2); margin: 0 0 6px; }
+    .empty-state p { font-size: 0.875rem; margin: 0; }
+    .empty-state a { color: var(--accent); }
+    .loading { text-align: center; padding: 40px; color: var(--text3); }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="sidebar" id="sidebar">
+  <button class="collapse-btn" id="collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+    <span class="cb-label">Collapse</span>
+    <span class="cb-icon">&#8249;</span>
+  </button>
+  <div class="sidebar-content" id="sidebar-content">
+    <div class="sidebar-top">
+      <div class="logo">Packet<em>Pulse</em></div>
+      <div class="logo-sub">Network Scanner</div>
+      <div class="sidebar-status">
+        <div class="s-dot online"></div>
+        <span class="s-label">Online</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="s-section-title">Operator</div>
+      <div class="net-item">
+        <div class="net-label">Signed in as</div>
+        <div class="net-val accent" id="operator-name">—</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="s-section-title">Navigation</div>
+      <div class="net-item">
+        <a href="app.html" style="color:var(--sidebar-dim);text-decoration:none;font-size:0.82rem;display:block;margin-bottom:6px">&#8592; Console</a>
+        <a href="profile.html" style="color:var(--sidebar-dim);text-decoration:none;font-size:0.82rem;display:block">&#128100; My Profile</a>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">
+        <span id="theme-label">Switch to Dark Mode</span>
+        <span class="icon" id="theme-icon">&#9790;</span>
+      </button>
+    </div>
+    <div class="sidebar-section" id="admin-nav" style="display:none">
+      <a href="admin.html" class="theme-btn" style="text-decoration:none;display:flex;justify-content:space-between;color:#7c3aed;border-color:rgba(124,58,237,0.25);">
+        <span>Admin Dashboard</span>
+        <span class="icon">&#9881;</span>
+      </a>
+    </div>
+    <div class="sidebar-section">
+      <button class="theme-btn" onclick="logout()" style="color:#ef4444;border-color:rgba(239,68,68,0.25);">
+        <span>Sign Out</span>
+        <span class="icon">&#8594;</span>
+      </button>
+    </div>
+    <div class="sidebar-bottom">PacketPulse &bull; Pure Python &bull; No frameworks</div>
+  </div>
+</aside>
+
+<div class="resize-handle" id="resize-handle" title="Drag to resize sidebar"></div>
+
+<main class="main">
+  <div class="page-header">
+    <div class="page-title">Scan History</div>
+    <div class="page-sub" id="page-sub">Your previous network scans</div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="num" id="stat-total">—</div><div class="lbl">Total Scans</div></div>
+    <div class="stat-card"><div class="num" id="stat-complete">—</div><div class="lbl">Completed</div></div>
+    <div class="stat-card"><div class="num" id="stat-hosts">—</div><div class="lbl">Hosts Found</div></div>
+    <div class="stat-card"><div class="num" id="stat-ports">—</div><div class="lbl">Open Ports</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <input type="text" id="search-input" placeholder="Filter by subnet or operator…" oninput="filterScans()">
+    <select id="status-filter" onchange="filterScans()">
+      <option value="">All statuses</option>
+      <option value="complete">Complete</option>
+      <option value="failed">Failed</option>
+      <option value="running">Running</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <div id="table-body"><div class="loading">Loading scan history…</div></div>
+  </div>
+
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-hdr">
+      <h3 id="detail-title">Scan Detail</h3>
+      <button class="btn-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div id="detail-body"></div>
+  </div>
+</main>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8000';
+let allScans = [], isAdmin = false, isDark = false;
+const token = localStorage.getItem('pp_token');
+if (!token) window.location.href = 'login.html';
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+}
+async function apiFetch(url, opts={}) {
+  const resp = await fetch(API_BASE+url, {...opts, headers:{...authHeaders(),...(opts.headers||{})}});
+  if (resp.status===401) { localStorage.clear(); window.location.href='login.html'; return null; }
+  return resp;
+}
+
+async function init() {
+  const collapsed = localStorage.getItem('pp_sidebar_collapsed')==='true';
+  if (collapsed) document.getElementById('sidebar').classList.add('collapsed');
+  document.getElementById('operator-name').textContent =
+    localStorage.getItem('pp_display_name') || localStorage.getItem('pp_operator_id') || '—';
+  if (localStorage.getItem('pp_role')==='admin') {
+    document.getElementById('admin-nav').style.display='';
+  }
+  setTheme(localStorage.getItem('pp_theme')||'light');
+  await loadHistory();
+}
+
+async function loadHistory() {
+  const resp = await apiFetch('/api/scan/history');
+  if (!resp) return;
+  const body = await resp.json();
+  if (!resp.ok) {
+    document.getElementById('table-body').innerHTML=`<div class="empty-state"><div class="icon">⚠</div><h3>Failed to load</h3><p>${esc(body.error)}</p></div>`;
+    return;
+  }
+  allScans = body.data.scans||[];
+  isAdmin  = body.data.is_admin||false;
+  if (isAdmin) {
+    document.getElementById('admin-nav').style.display='';
+    document.getElementById('page-sub').textContent=`All operator scans — admin view (${allScans.length} total)`;
+  }
+  updateStats(); renderTable(allScans);
+}
+
+function updateStats() {
+  const c = allScans.filter(s=>s.status==='complete');
+  document.getElementById('stat-total').textContent    = allScans.length;
+  document.getElementById('stat-complete').textContent = c.length;
+  document.getElementById('stat-hosts').textContent    = c.reduce((a,s)=>a+(s.hosts_alive||0),0);
+  document.getElementById('stat-ports').textContent    = c.reduce((a,s)=>a+(s.open_ports||0),0);
+}
+
+function renderTable(scans) {
+  if (!scans.length) {
+    document.getElementById('table-body').innerHTML=`<div class="empty-state"><div class="icon">📡</div><h3>No scans yet</h3><p>Run your first scan from the <a href="app.html">console</a>.</p></div>`;
+    return;
+  }
+  const adminCol = isAdmin?'<th>Operator</th>':'';
+  const rows = scans.map(s=>{
+    const date  = s.started_at?new Date(s.started_at).toLocaleString():'—';
+    const dur   = s.duration_ms?`${(s.duration_ms/1000).toFixed(1)}s`:'—';
+    const badge = `<span class="badge badge-${s.status}">${s.status}</span>`;
+    const adminCell = isAdmin?`<td>${esc(s.operator_id||s.display_name||'—')}</td>`:'';
+    return `<tr><td class="mono">${esc(s.subnet)}.${s.range_start}–${s.range_end}</td>${adminCell}<td style="font-size:0.82rem;color:var(--text3)">${date}</td><td>${badge}</td><td>${s.hosts_alive??'—'} / ${s.hosts_scanned??'—'}</td><td>${s.open_ports??'—'}</td><td style="color:var(--text3);font-size:0.82rem">${dur}</td><td><button class="btn-view" onclick="viewScan('${s.id}')">View →</button></td></tr>`;
+  }).join('');
+  document.getElementById('table-body').innerHTML=`<table class="history-table"><thead><tr><th>Target</th>${adminCol}<th>Started</th><th>Status</th><th>Hosts (alive/total)</th><th>Open Ports</th><th>Duration</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function filterScans() {
+  const q=document.getElementById('search-input').value.toLowerCase();
+  const s=document.getElementById('status-filter').value;
+  renderTable(allScans.filter(sc=>(!q||sc.subnet.toLowerCase().includes(q)||(sc.operator_id||'').toLowerCase().includes(q))&&(!s||sc.status===s)));
+}
+
+async function viewScan(scanId) {
+  const panel=document.getElementById('detail-panel');
+  panel.className='detail-panel show';
+  document.getElementById('detail-body').innerHTML='<div class="loading">Loading…</div>';
+  panel.scrollIntoView({behavior:'smooth'});
+  const resp=await apiFetch(`/api/scan/${scanId}`);
+  if (!resp) return;
+  const body=await resp.json();
+  if (!resp.ok) { document.getElementById('detail-body').innerHTML=`<p style="color:var(--red)">${esc(body.error)}</p>`; return; }
+  const {scan,hosts}=body.data;
+  const alive=(hosts||[]).filter(h=>h.is_up);
+  document.getElementById('detail-title').textContent=`${scan.subnet}.${scan.range_start}–${scan.range_end} — ${scan.started_at?new Date(scan.started_at).toLocaleString():'—'}`;
+  if (!alive.length) { document.getElementById('detail-body').innerHTML='<p style="color:var(--text3);margin:0">No live hosts found.</p>'; return; }
+  const cards=alive.map(h=>{
+    const ports=h.ports&&h.ports.length?h.ports.map(p=>`<span class="port-tag">${p.port}/${p.label}</span>`).join(''):'<span style="color:var(--text4);font-size:0.78rem">No open ports</span>';
+    return `<div class="host-card"><div class="host-ip">${esc(h.ip)}</div>${h.hostname?`<div style="font-size:0.78rem;color:var(--text3);margin-bottom:6px">${esc(h.hostname)}</div>`:''}<div>${ports}</div></div>`;
+  }).join('');
+  document.getElementById('detail-body').innerHTML=`<p style="color:var(--text3);font-size:0.85rem;margin:0 0 12px">${alive.length} live host${alive.length!==1?'s':''} — ${scan.open_ports||0} open port${scan.open_ports!==1?'s':''}</p><div class="host-grid">${cards}</div>`;
+}
+
+function closeDetail() { document.getElementById('detail-panel').className='detail-panel'; }
+function toggleSidebar() {
+  const sb=document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  localStorage.setItem('pp_sidebar_collapsed',sb.classList.contains('collapsed'));
+}
+function setTheme(t) {
+  isDark=t==='dark';
+  document.documentElement.setAttribute('data-theme',t);
+  const lbl=document.getElementById('theme-label');
+  const ico=document.getElementById('theme-icon');
+  if(lbl) lbl.textContent=isDark?'Switch to Light Mode':'Switch to Dark Mode';
+  if(ico) ico.innerHTML=isDark?'&#9728;':'&#9790;';
+}
+function toggleTheme() { const n=isDark?'light':'dark'; localStorage.setItem('pp_theme',n); setTheme(n); }
+function logout() {
+  fetch(API_BASE+'/api/auth/logout',{method:'POST',headers:authHeaders()})
+    .finally(()=>{ localStorage.clear(); window.location.href='login.html'; });
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+(function(){
+  const handle=document.getElementById('resize-handle');
+  const sidebar=document.getElementById('sidebar');
+  if(!handle||!sidebar) return;
+  let dragging=false,startX,startW;
+  handle.addEventListener('mousedown',e=>{ dragging=true; startX=e.clientX; startW=sidebar.getBoundingClientRect().width; document.body.style.cursor='col-resize'; });
+  document.addEventListener('mousemove',e=>{ if(!dragging) return; sidebar.style.width=Math.max(180,Math.min(400,startW+e.clientX-startX))+'px'; });
+  document.addEventListener('mouseup',()=>{ dragging=false; document.body.style.cursor=''; });
+})();
+init();
+</script>
+</body>
+</html>

@@ -5,6 +5,28 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PacketPulse &mdash; Console</title>
   <link rel="stylesheet" href="/assets/style.css">
+  <style>
+    .sidebar-nav-link {
+      display: block;
+      padding: 5px 0;
+      color: var(--sidebar-dim);
+      text-decoration: none;
+      font-size: 0.82rem;
+      transition: color 0.15s;
+    }
+    .sidebar-nav-link:hover { color: var(--sidebar-text); }
+    .sidebar-nav-link.admin-link { color: #a78bfa; }
+    .sidebar-nav-link.admin-link:hover { color: #c4b5fd; }
+    #sidebar-content {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .sidebar-actions {
+      margin-top: auto;
+      padding: 12px 16px 0;
+    }
+  </style>
 </head>
 <body>
 <div class="layout">
@@ -19,6 +41,8 @@
   </button>
 
   <div class="sidebar-content" id="sidebar-content">
+
+    <!-- Logo + status -->
     <div class="sidebar-top">
       <div class="logo">Packet<em>Pulse</em></div>
       <div class="logo-sub">Network Scanner</div>
@@ -29,18 +53,14 @@
       </div>
     </div>
 
-    <!-- Operator identity -->
+    <!-- All info in one compact section -->
     <div class="sidebar-section">
       <div class="s-section-title">Operator</div>
       <div class="net-item">
         <div class="net-label">Signed in as</div>
         <div class="net-val accent" id="operator-name">—</div>
       </div>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="s-section-title">Network Info</div>
-      <div class="net-item">
+      <div class="net-item" style="margin-top:8px">
         <div class="net-label">Internal IP</div>
         <div class="net-val accent" id="lip">Detecting&hellip;</div>
       </div>
@@ -50,6 +70,7 @@
       </div>
     </div>
 
+    <!-- Last scan stats -->
     <div class="sidebar-section">
       <div class="s-section-title">Last Scan</div>
       <div class="stat-row">
@@ -64,23 +85,28 @@
       </div>
     </div>
 
+    <!-- Navigation -->
     <div class="sidebar-section">
-      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">
+      <div class="s-section-title">Navigation</div>
+      <a href="profile.html" class="sidebar-nav-link">&#128100; My Profile</a>
+      <a href="history.html" class="sidebar-nav-link">&#128202; Scan History</a>
+      <a href="admin.html" class="sidebar-nav-link admin-link" id="admin-nav" style="display:none">&#9881; Admin Dashboard</a>
+    </div>
+
+    <!-- Bottom actions — pushed to bottom -->
+    <div class="sidebar-actions">
+      <button class="theme-btn" id="theme-btn">
         <span id="theme-label">Switch to Dark Mode</span>
         <span class="icon" id="theme-icon">&#9790;</span>
       </button>
-    </div>
-
-    <!-- Signout -->
-    <div class="sidebar-section">
-      <button class="theme-btn" onclick="signOut()" style="color:#ef4444;border-color:rgba(239,68,68,0.25);">
+      <button class="theme-btn" onclick="signOut()" style="color:#ef4444;border-color:rgba(239,68,68,0.25);margin-top:6px">
         <span>Sign Out</span>
         <span class="icon">&#8594;</span>
       </button>
     </div>
 
     <div class="sidebar-bottom">
-      PacketPulse &bull; Python Powered &bull; &copy; Geoffrey Sakora 2026
+      PacketPulse &bull; Pure Python &bull; No frameworks
     </div>
   </div><!-- /sidebar-content -->
 </aside>

@@ -685,7 +685,7 @@
           <label class="check-label">
             <input type="checkbox" id="remember"> Keep me signed in
           </label>
-          <a href="#" class="forgot-link">Reset access →</a>
+          <a href="forgot-password.html" class="forgot-link">Forgot password →</a>
         </div>
 
         <!-- MFA -->
@@ -1023,8 +1023,9 @@
       btnText.textContent = 'Authenticating…';
 
       try {
-        //const resp = await fetch('/api/auth/login', { // for production
-        const resp = await fetch('http://localhost:8000/api/auth/login', {
+        //const resp = await fetch('/api/auth/login', {                      //for production
+       const resp = await fetch('http://localhost:8000/api/auth/login', {    //for dev only
+
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({ operator_id: username, password }),
@@ -1037,6 +1038,7 @@
           localStorage.setItem('pp_operator_id',  body.data.operator_id);
           localStorage.setItem('pp_display_name', body.data.display_name);
           localStorage.setItem('pp_expires_at',   body.data.expires_at);
+          localStorage.setItem('pp_role',         body.data.role);
           window.location.href = 'app.html';
         } else {
           btn.classList.remove('loading');

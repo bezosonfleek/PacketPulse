@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PacketPulse — My Profile</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 860px;
+    }
+    @media (max-width: 700px) { .profile-grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--bdr);
+      border-radius: 10px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--bdr);
+      background: var(--surface2);
+    }
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .card-body { padding: 20px; }
+
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .field input, .field select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--bdr);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.875rem;
+      font-family: inherit;
+      box-sizing: border-box;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .field input:disabled {
+      background: var(--surface2);
+      color: var(--text3);
+      cursor: not-allowed;
+    }
+    .field .hint {
+      font-size: 0.75rem;
+      color: var(--text4);
+      margin-top: 4px;
+    }
+
+    .btn-save {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 4px;
+      transition: opacity 0.15s;
+    }
+    .btn-save:hover { opacity: 0.88; }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .msg {
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-top: 12px;
+      display: none;
+    }
+    .msg.show { display: block; }
+    .msg.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+    .msg.error   { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red); }
+
+    .avatar {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1.6rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+    .profile-identity {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .identity-text .name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .identity-text .operator-id {
+      font-size: 0.8rem;
+      color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 2px;
+    }
+    .identity-text .role-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 4px;
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .identity-text .role-badge.admin { background: #f5f3ff; color: #7c3aed; }
+
+    .readonly-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--bdr);
+      font-size: 0.875rem;
+    }
+    .readonly-row:last-child { border-bottom: none; }
+    .readonly-row .rl { color: var(--text3); font-size: 0.8rem; }
+    .readonly-row .rv { color: var(--text); font-weight: 500; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+
+    .password-strength {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--bdr);
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .password-strength-bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s, background 0.3s;
+      width: 0%;
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="sidebar" id="sidebar">
+  <button class="collapse-btn" id="collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+    <span class="cb-label">Collapse</span>
+    <span class="cb-icon">&#8249;</span>
+  </button>
+  <div class="sidebar-content" id="sidebar-content">
+    <div class="sidebar-top">
+      <div class="logo">Packet<em>Pulse</em></div>
+      <div class="logo-sub">Network Scanner</div>
+      <div class="sidebar-status">
+        <div class="s-dot online"></div>
+        <span class="s-label">Online</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="s-section-title">Operator</div>
+      <div class="net-item">
+        <div class="net-label">Signed in as</div>
+        <div class="net-val accent" id="operator-name">—</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="s-section-title">Navigation</div>
+      <div class="net-item">
+        <a href="app.html"     style="color:var(--sidebar-dim);text-decoration:none;font-size:0.82rem;display:block;margin-bottom:6px">&#128269; Console</a>
+        <a href="history.html" style="color:var(--sidebar-dim);text-decoration:none;font-size:0.82rem;display:block;margin-bottom:6px">&#128202; Scan History</a>
+        <a href="admin.html"   id="admin-nav" style="color:#a78bfa;text-decoration:none;font-size:0.82rem;display:none">&#9881; Admin Dashboard</a>
+      </div>
+    </div>
+    <div class="sidebar-actions">
+      <button class="theme-btn" id="theme-btn">
+        <span id="theme-label">Switch to Dark Mode</span>
+        <span class="icon" id="theme-icon">&#9790;</span>
+      </button>
+      <button class="theme-btn" onclick="logout()" style="color:#ef4444;border-color:rgba(239,68,68,0.25);margin-top:6px">
+        <span>Sign Out</span>
+        <span class="icon">&#8594;</span>
+      </button>
+    </div>
+    <div class="sidebar-bottom">PacketPulse &bull; Pure Python &bull; No frameworks</div>
+  </div>
+</aside>
+
+<div class="resize-handle" id="resize-handle"></div>
+
+<main class="main">
+  <div class="page-header">
+    <div class="page-title">My Profile</div>
+    <div class="page-sub">Manage your account details and security settings</div>
+  </div>
+
+  <div class="profile-grid">
+
+    <!-- Identity card (read-only) -->
+    <div class="card" style="grid-column: 1 / -1">
+      <div class="profile-identity">
+        <div class="avatar" id="avatar-initials">?</div>
+        <div class="identity-text">
+          <div class="name" id="id-display-name">—</div>
+          <div class="operator-id" id="id-operator-id">—</div>
+          <div class="role-badge" id="id-role">—</div>
+        </div>
+      </div>
+      <div style="padding: 0 20px 4px">
+        <div class="readonly-row">
+          <span class="rl">Member since</span>
+          <span class="rv" id="id-created-at">—</span>
+        </div>
+        <div class="readonly-row">
+          <span class="rl">Account status</span>
+          <span class="rv" id="id-status">—</span>
+        </div>
+        <div class="readonly-row" id="verify-banner" style="display:none">
+          <span class="rl" style="color:#f59e0b">Email not verified</span>
+          <button onclick="resendVerification()" style="padding:3px 10px;border-radius:5px;border:1px solid #f59e0b;background:none;color:#f59e0b;font-size:0.75rem;cursor:pointer;font-family:inherit">Resend →</button>
+        </div>
+        <div class="readonly-row">
+          <span class="rl">Organisation</span>
+          <span class="rv" id="id-org">—</span>
+        </div>
+        <div class="readonly-row">
+          <span class="rl">Network scale</span>
+          <span class="rv" id="id-scale">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit profile -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Edit Profile</span></div>
+      <div class="card-body">
+        <div class="field">
+          <label>Display Name</label>
+          <input type="text" id="f-display-name" maxlength="120" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Email Address</label>
+          <input type="email" id="f-email" maxlength="254" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Organisation</label>
+          <input type="text" id="f-organisation" maxlength="120" placeholder="Optional" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Network Scale</label>
+          <select id="f-network-scale">
+            <option value="">— Select —</option>
+            <option value="1-10">1–10 devices</option>
+            <option value="11-50">11–50 devices</option>
+            <option value="51-200">51–200 devices</option>
+            <option value="200+">200+ devices</option>
+          </select>
+        </div>
+        <button class="btn-save" id="btn-save-profile" onclick="saveProfile()">Save Changes</button>
+        <div class="msg" id="msg-profile"></div>
+      </div>
+    </div>
+
+    <!-- Change password -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Change Password</span></div>
+      <div class="card-body">
+        <div class="field">
+          <label>Current Password</label>
+          <input type="password" id="f-current-pw" autocomplete="current-password">
+        </div>
+        <div class="field">
+          <label>New Password</label>
+          <input type="password" id="f-new-pw" autocomplete="new-password" oninput="checkStrength(this.value)">
+          <div class="password-strength"><div class="password-strength-bar" id="pw-strength-bar"></div></div>
+          <div class="hint" id="pw-strength-label">At least 12 characters</div>
+        </div>
+        <div class="field">
+          <label>Confirm New Password</label>
+          <input type="password" id="f-confirm-pw" autocomplete="new-password">
+        </div>
+        <button class="btn-save" id="btn-save-pw" onclick="changePassword()">Change Password</button>
+        <div class="msg" id="msg-pw"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8000';
+const token    = localStorage.getItem('pp_token');
+if (!token) window.location.href = 'login.html';
+let isDark = false;
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+}
+async function apiFetch(url, opts={}) {
+  const resp = await fetch(API_BASE+url, {...opts, headers:{...authHeaders(),...(opts.headers||{})}});
+  if (resp.status===401) { localStorage.clear(); window.location.href='login.html'; return null; }
+  return resp;
+}
+
+async function init() {
+  // Sidebar state
+  if (localStorage.getItem('pp_sidebar_collapsed')==='true')
+    document.getElementById('sidebar').classList.add('collapsed');
+
+  document.getElementById('operator-name').textContent =
+    localStorage.getItem('pp_display_name') || localStorage.getItem('pp_operator_id') || '—';
+
+  if (localStorage.getItem('pp_role')==='admin')
+    document.getElementById('admin-nav').style.display = '';
+
+  // Theme
+  setTheme(localStorage.getItem('pp_theme') || 'light');
+  document.getElementById('theme-btn').addEventListener('click', toggleTheme);
+
+  // Sidebar resize
+  initResize();
+
+  // Load profile data
+  const resp = await apiFetch('/api/auth/me');
+  if (!resp) return;
+  const body = await resp.json();
+  const u    = body.data || {};
+
+  // Identity panel
+  const initials = (u.display_name || u.operator_id || '?').charAt(0).toUpperCase();
+  document.getElementById('avatar-initials').textContent  = initials;
+  document.getElementById('id-display-name').textContent  = u.display_name || '—';
+  document.getElementById('id-operator-id').textContent   = u.operator_id  || '—';
+  document.getElementById('id-role').textContent          = u.role         || '—';
+  document.getElementById('id-role').className = 'role-badge' + (u.role==='admin' ? ' admin' : '');
+  document.getElementById('id-created-at').textContent    = u.created_at   ? new Date(u.created_at).toLocaleDateString() : '—';
+  document.getElementById('id-status').textContent        = u.status       || '—';
+  if (u.email_verified === false) {
+    document.getElementById('verify-banner').style.display = '';
+  }
+  document.getElementById('id-org').textContent           = u.organisation  || 'Not set';
+  document.getElementById('id-scale').textContent         = u.network_scale || 'Not set';
+
+  // Pre-fill edit form
+  document.getElementById('f-display-name').value   = u.display_name   || '';
+  document.getElementById('f-email').value          = u.email          || '';
+  document.getElementById('f-organisation').value   = u.organisation   || '';
+  document.getElementById('f-network-scale').value  = u.network_scale  || '';
+}
+
+async function resendVerification() {
+  const resp = await apiFetch('/api/auth/send-verification', { method: 'POST' });
+  if (!resp) return;
+  const data = await resp.json();
+  alert(resp.ok ? data.data.message : (data.error || 'Failed to resend.'));
+}
+
+async function saveProfile() {
+  const btn = document.getElementById('btn-save-profile');
+  const msg = document.getElementById('msg-profile');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  showMsg(msg, '', '');
+
+  const body = {
+    display_name:  document.getElementById('f-display-name').value.trim(),
+    email:         document.getElementById('f-email').value.trim(),
+    organisation:  document.getElementById('f-organisation').value.trim(),
+    network_scale: document.getElementById('f-network-scale').value,
+  };
+
+  const resp = await apiFetch('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(body) });
+  btn.disabled = false;
+  btn.textContent = 'Save Changes';
+
+  if (!resp) return;
+  const data = await resp.json();
+
+  if (resp.ok) {
+    showMsg(msg, data.data.message, 'success');
+    // Update sidebar + localStorage
+    localStorage.setItem('pp_display_name', data.data.display_name);
+    document.getElementById('operator-name').textContent     = data.data.display_name;
+    document.getElementById('id-display-name').textContent   = data.data.display_name;
+    document.getElementById('avatar-initials').textContent   = data.data.display_name.charAt(0).toUpperCase();
+    document.getElementById('id-org').textContent   = data.data.organisation   || 'Not set';
+    document.getElementById('id-scale').textContent = data.data.network_scale  || 'Not set';
+  } else {
+    showMsg(msg, data.error || 'Failed to save.', 'error');
+  }
+}
+
+async function changePassword() {
+  const btn       = document.getElementById('btn-save-pw');
+  const msg       = document.getElementById('msg-pw');
+  const currentPw = document.getElementById('f-current-pw').value;
+  const newPw     = document.getElementById('f-new-pw').value;
+  const confirmPw = document.getElementById('f-confirm-pw').value;
+
+  showMsg(msg, '', '');
+
+  if (!currentPw || !newPw || !confirmPw) {
+    showMsg(msg, 'All password fields are required.', 'error'); return;
+  }
+  if (newPw.length < 12) {
+    showMsg(msg, 'New password must be at least 12 characters.', 'error'); return;
+  }
+  if (newPw !== confirmPw) {
+    showMsg(msg, 'New passwords do not match.', 'error'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Changing…';
+
+  const resp = await apiFetch('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ current_password: currentPw, new_password: newPw }),
+  });
+  btn.disabled = false;
+  btn.textContent = 'Change Password';
+
+  if (!resp) return;
+  const data = await resp.json();
+
+  if (resp.ok) {
+    showMsg(msg, data.data.message, 'success');
+    // Clear fields
+    document.getElementById('f-current-pw').value = '';
+    document.getElementById('f-new-pw').value     = '';
+    document.getElementById('f-confirm-pw').value = '';
+    document.getElementById('pw-strength-bar').style.width = '0%';
+    document.getElementById('pw-strength-label').textContent = 'At least 12 characters';
+    // Force re-login after 2s
+    setTimeout(() => { localStorage.clear(); window.location.href = 'login.html'; }, 2000);
+  } else {
+    showMsg(msg, data.error || 'Failed to change password.', 'error');
+  }
+}
+
+function checkStrength(pw) {
+  const bar   = document.getElementById('pw-strength-bar');
+  const label = document.getElementById('pw-strength-label');
+  let score = 0;
+  if (pw.length >= 12)                    score++;
+  if (pw.length >= 16)                    score++;
+  if (/[A-Z]/.test(pw))                  score++;
+  if (/[0-9]/.test(pw))                  score++;
+  if (/[^A-Za-z0-9]/.test(pw))           score++;
+  const pct    = Math.min(100, score * 20);
+  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#16a34a'];
+  const labels = ['Very weak','Weak','Fair','Strong','Very strong'];
+  bar.style.width      = pct + '%';
+  bar.style.background = colors[score-1] || '#ef4444';
+  label.textContent    = score === 0 ? 'At least 12 characters' : labels[score-1];
+  label.style.color    = colors[score-1] || 'var(--text4)';
+}
+
+function showMsg(el, text, type) {
+  el.textContent = text;
+  el.className   = 'msg' + (type ? ' show ' + type : '');
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  localStorage.setItem('pp_sidebar_collapsed', sb.classList.contains('collapsed'));
+}
+function setTheme(t) {
+  isDark = t==='dark';
+  document.documentElement.setAttribute('data-theme', t);
+  const lbl = document.getElementById('theme-label');
+  const ico = document.getElementById('theme-icon');
+  if (lbl) lbl.textContent = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+  if (ico) ico.innerHTML   = isDark ? '&#9728;' : '&#9790;';
+}
+function toggleTheme() {
+  const n = isDark ? 'light' : 'dark';
+  localStorage.setItem('pp_theme', n);
+  setTheme(n);
+}
+function logout() {
+  fetch(API_BASE+'/api/auth/logout', {method:'POST', headers:authHeaders()})
+    .finally(() => { localStorage.clear(); window.location.href='login.html'; });
+}
+function initResize() {
+  const handle  = document.getElementById('resize-handle');
+  const sidebar = document.getElementById('sidebar');
+  if (!handle||!sidebar) return;
+  let dragging=false, startX, startW;
+  handle.addEventListener('mousedown', e=>{ dragging=true; startX=e.clientX; startW=sidebar.getBoundingClientRect().width; document.body.style.cursor='col-resize'; });
+  document.addEventListener('mousemove', e=>{ if(!dragging) return; sidebar.style.width=Math.max(180,Math.min(400,startW+e.clientX-startX))+'px'; });
+  document.addEventListener('mouseup', ()=>{ dragging=false; document.body.style.cursor=''; });
+}
+
+init();
+</script>
+</body>
+</html>

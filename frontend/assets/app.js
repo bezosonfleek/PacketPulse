@@ -67,6 +67,7 @@ async function signOut() {
   localStorage.removeItem('pp_operator_id');
   localStorage.removeItem('pp_display_name');
   localStorage.removeItem('pp_expires_at');
+  localStorage.removeItem('pp_role');
   window.location.href = 'login.html';
 }
 
@@ -233,19 +234,10 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   document.getElementById('theme-icon').textContent  = isDark ? '☀' : '☾';
   document.getElementById('theme-label').textContent = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-  try { localStorage.setItem('pp-theme', isDark ? 'dark' : 'light'); } catch(e) {}
+  try { localStorage.setItem('pp_theme', isDark ? 'dark' : 'light'); } catch(e) {}
 }
 
-(function restoreTheme() {
-  try {
-    if (localStorage.getItem('pp-theme') === 'dark') {
-      isDark = true;
-      document.documentElement.setAttribute('data-theme', 'dark');
-      document.getElementById('theme-icon').textContent  = '☀';
-      document.getElementById('theme-label').textContent = 'Switch to Light Mode';
-    }
-  } catch(e) {}
-})();
+// restoreTheme is called inside init() after DOM is ready
 
 // ══════════════════════════════════════════
 //  CLOCK
@@ -267,10 +259,31 @@ async function init() {
   initSidebarResize();
   startClock();
 
+  // Restore theme — must run after DOM is ready
+  try {
+    if (localStorage.getItem('pp_theme') === 'dark') {
+      isDark = true;
+      document.documentElement.setAttribute('data-theme', 'dark');
+      const ico = document.getElementById('theme-icon');
+      const lbl = document.getElementById('theme-label');
+      if (ico) ico.textContent = '☀';
+      if (lbl) lbl.textContent = 'Switch to Light Mode';
+    }
+  } catch(e) {}
+
+  // Wire theme button via JS — avoids global scope issues with onclick
+  const themeBtn = document.getElementById('theme-btn');
+  if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
   // Show operator name in UI if element exists
   const displayName = localStorage.getItem('pp_display_name') ||
                       localStorage.getItem('pp_operator_id')  || 'Operator';
   setText('operator-name', displayName);
+
+  // Show admin nav link if user is admin
+  const role = localStorage.getItem('pp_role');
+  const adminNav = document.getElementById('admin-nav');
+  if (role === 'admin' && adminNav) adminNav.style.display = '';
 
   try {
     const r = await apiFetch('/api/scan/init');

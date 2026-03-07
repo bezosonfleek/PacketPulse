@@ -1157,8 +1157,8 @@
       const scale = document.querySelector('.size-chip.active')?.dataset?.size    || '';
 
       try {
-        //const resp = await fetch('/api/auth/signup', { //for-production
-        const resp = await fetch('http://localhost:8000/api/auth/signup', {
+        //const resp = await fetch('/api/auth/signup', {                       //for-production
+        const resp = await fetch('http://localhost:8000/api/auth/signup', {    //for dev only
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PacketPulse — Admin</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+    .stat-card { background: var(--surface); border: 1px solid var(--bdr); border-radius: 10px; padding: 20px 24px; box-shadow: var(--shadow-sm); }
+    .stat-card .num { font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 6px; }
+    .stat-card .num.red   { color: var(--red); }
+    .stat-card .num.green { color: var(--green); }
+    .stat-card .num.amber { color: var(--amber); }
+    .stat-card .lbl { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--bdr); margin-bottom: 24px; }
+    .tab-btn { padding: 9px 18px; border: none; background: none; color: var(--text3); font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; font-family: inherit; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .table-wrap { background: var(--surface); border: 1px solid var(--bdr); border-radius: 10px; box-shadow: var(--shadow-sm); overflow: hidden; }
+    .table-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--bdr); gap: 10px; flex-wrap: wrap; }
+    .table-toolbar h3 { font-size: 0.9rem; font-weight: 600; color: var(--text); margin: 0; }
+    .table-toolbar input { padding: 7px 12px; border: 1px solid var(--bdr); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 0.82rem; width: 220px; font-family: inherit; }
+    .table-toolbar input:focus { outline: none; border-color: var(--accent); }
+
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.855rem; }
+    .data-table th { background: var(--surface2); color: var(--text3); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--bdr); }
+    .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--bdr); color: var(--text2); vertical-align: middle; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--surface2); }
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent); }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .badge-active    { background: var(--green-bg);  color: var(--green); }
+    .badge-suspended { background: var(--red-bg);    color: var(--red); }
+    .badge-pending   { background: #fef3c7;           color: var(--amber); }
+    .badge-admin     { background: #f5f3ff; color: #7c3aed; }
+    .badge-security  { background: #eff6ff; color: #1d4ed8; }
+    .badge-sysadmin  { background: #f0fdf4; color: #15803d; }
+    .badge-devops    { background: #fff7ed; color: #c2410c; }
+    .badge-other     { background: var(--surface3);  color: var(--text3); }
+    .badge-success   { background: var(--green-bg);  color: var(--green); }
+    .badge-fail      { background: var(--red-bg);    color: var(--red); }
+
+    .actions { display: flex; gap: 6px; align-items: center; }
+    .btn-sm { padding: 4px 10px; border-radius: 5px; border: 1px solid var(--bdr); background: var(--surface); color: var(--text2); font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .btn-sm:hover         { background: var(--surface2); }
+    .btn-sm.danger:hover  { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+    .btn-sm.success:hover { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--bdr); border-radius: 12px; padding: 28px; width: 420px; max-width: 90vw; box-shadow: var(--shadow-lg); }
+    .modal h3 { margin: 0 0 6px; font-size: 1rem; color: var(--text); }
+    .modal p  { margin: 0 0 20px; color: var(--text3); font-size: 0.875rem; }
+    .modal select { width: 100%; padding: 10px 12px; border: 1px solid var(--bdr); border-radius: 6px; background: var(--surface2); color: var(--text); font-size: 0.875rem; margin-bottom: 16px; font-family: inherit; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .btn-primary { padding: 8px 18px; border-radius: 6px; border: none; background: var(--accent); color: #fff; font-size: 0.875rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-cancel { padding: 8px 18px; border-radius: 6px; border: 1px solid var(--bdr); background: var(--surface); color: var(--text2); font-size: 0.875rem; cursor: pointer; font-family: inherit; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--surface); padding: 12px 20px; border-radius: 8px; font-size: 0.875rem; font-weight: 500; opacity: 0; transform: translateY(8px); transition: all 0.25s; z-index: 200; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--red); }
+
+    .empty { text-align: center; padding: 48px 20px; color: var(--text3); }
+    .loading { text-align: center; padding: 36px; color: var(--text3); }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="sidebar" id="sidebar">
+  <button class="collapse-btn" id="collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+    <span class="cb-label">Collapse</span>
+    <span class="cb-icon">&#8249;</span>
+  </button>
+  <div class="sidebar-content" id="sidebar-content">
+    <div class="sidebar-top">
+      <div class="logo">Packet<em>Pulse</em></div>
+      <div class="logo-sub">Network Scanner</div>
+      <div class="sidebar-status">
+        <div class="s-dot online"></div>
+        <span class="s-label">Online</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="s-section-title">Operator</div>
+      <div class="net-item">
+        <div class="net-label">Signed in as</div>
+        <div class="net-val accent" id="operator-name">—</div>
+      </div>
+      <div class="net-item" style="margin-top:4px">
+        <div class="net-label">Role</div>
+        <div class="net-val" style="color:#7c3aed">Admin</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="s-section-title">Navigation</div>
+      <div class="net-item">
+        <a href="app.html" style="color:var(--sidebar-dim);text-decoration:none;font-size:0.82rem;display:block;margin-bottom:6px">&#8592; Console</a>
+        <a href="profile.html" style="color:var(--sidebar-dim);text-decoration:none;font-size:0.82rem;display:block;margin-bottom:6px">&#128100; My Profile</a>
+        <a href="history.html" style="color:var(--sidebar-dim);text-decoration:none;font-size:0.82rem;display:block">&#128202; Scan History</a>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">
+        <span id="theme-label">Switch to Dark Mode</span>
+        <span class="icon" id="theme-icon">&#9790;</span>
+      </button>
+    </div>
+    <div class="sidebar-section">
+      <button class="theme-btn" onclick="logout()" style="color:#ef4444;border-color:rgba(239,68,68,0.25);">
+        <span>Sign Out</span>
+        <span class="icon">&#8594;</span>
+      </button>
+    </div>
+    <div class="sidebar-bottom">PacketPulse &bull; Pure Python &bull; No frameworks</div>
+  </div>
+</aside>
+
+<div class="resize-handle" id="resize-handle" title="Drag to resize sidebar"></div>
+
+<main class="main">
+  <div class="page-header">
+    <div class="page-title">Admin Dashboard</div>
+    <div class="page-sub">Manage operators, monitor activity, and review login attempts</div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab-btn"        onclick="switchTab('users')">Users</button>
+    <button class="tab-btn"        onclick="switchTab('logins')">Login Audit</button>
+  </div>
+
+  <!-- Overview -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="stats-grid" id="stats-grid">
+      <div class="loading">Loading stats…</div>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="tab-panel" id="tab-users">
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <h3>All Operators</h3>
+        <input type="text" id="user-search" placeholder="Search by ID, name, email…" oninput="filterUsers()">
+      </div>
+      <div id="users-table-body"><div class="loading">Loading users…</div></div>
+    </div>
+  </div>
+
+  <!-- Login audit -->
+  <div class="tab-panel" id="tab-logins">
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <h3>Recent Login Attempts</h3>
+        <input type="text" id="login-search" placeholder="Search by operator or IP…" oninput="filterLogins()">
+      </div>
+      <div id="logins-table-body"><div class="loading">Loading audit log…</div></div>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- Role modal -->
+<div class="modal-overlay" id="role-modal">
+  <div class="modal">
+    <h3>Change Role</h3>
+    <p id="role-modal-sub">Update operator role</p>
+    <select id="role-select">
+      <option value="other">Other</option>
+      <option value="security">Security</option>
+      <option value="sysadmin">Sysadmin</option>
+      <option value="devops">DevOps</option>
+      <option value="admin">Admin</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('role-modal')">Cancel</button>
+      <button class="btn-primary" onclick="confirmRoleChange()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = 'http://localhost:8000';
+const token    = localStorage.getItem('pp_token');
+const myRole   = localStorage.getItem('pp_role');
+let allUsers=[], allLogins=[], isDark=false;
+let pendingRoleUserId=null, pendingRoleUserName=null;
+
+if (!token)         { window.location.href='login.html'; }
+if (myRole!=='admin') { window.location.href='app.html'; }
+
+function authHeaders() { return {'Content-Type':'application/json','Authorization':`Bearer ${token}`}; }
+async function apiFetch(url,opts={}) {
+  const resp=await fetch(API_BASE+url,{...opts,headers:{...authHeaders(),...(opts.headers||{})}});
+  if (resp.status===401) { localStorage.clear(); window.location.href='login.html'; return null; }
+  if (resp.status===403) { window.location.href='app.html'; return null; }
+  return resp;
+}
+
+async function init() {
+  const collapsed=localStorage.getItem('pp_sidebar_collapsed')==='true';
+  if (collapsed) document.getElementById('sidebar').classList.add('collapsed');
+  document.getElementById('operator-name').textContent=
+    localStorage.getItem('pp_display_name')||localStorage.getItem('pp_operator_id')||'—';
+  setTheme(localStorage.getItem('pp_theme')||'light');
+  await Promise.all([loadStats(), loadUsers(), loadLogins()]);
+}
+
+function switchTab(name) {
+  const names=['overview','users','logins'];
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+async function loadStats() {
+  const resp=await apiFetch('/api/admin/stats');
+  if (!resp) return;
+  const {data}=await resp.json();
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat-card"><div class="num">${data.total_users}</div><div class="lbl">Total Users</div></div>
+    <div class="stat-card"><div class="num green">${data.active_users}</div><div class="lbl">Active</div></div>
+    <div class="stat-card"><div class="num amber">${data.pending_users}</div><div class="lbl">Pending</div></div>
+    <div class="stat-card"><div class="num red">${data.suspended_users}</div><div class="lbl">Suspended</div></div>
+    <div class="stat-card"><div class="num">${data.total_scans}</div><div class="lbl">Total Scans</div></div>
+    <div class="stat-card"><div class="num green">${data.total_hosts_found}</div><div class="lbl">Hosts Found</div></div>
+    <div class="stat-card"><div class="num">${data.total_ports_found}</div><div class="lbl">Open Ports</div></div>
+    <div class="stat-card"><div class="num ${data.failed_logins_24h>10?'red':'amber'}">${data.failed_logins_24h}</div><div class="lbl">Failed Logins (24h)</div></div>`;
+}
+
+async function loadUsers() {
+  const resp=await apiFetch('/api/admin/users');
+  if (!resp) return;
+  const {data}=await resp.json();
+  allUsers=data.users||[];
+  renderUsers(allUsers);
+}
+function filterUsers() {
+  const q=document.getElementById('user-search').value.toLowerCase();
+  renderUsers(allUsers.filter(u=>u.operator_id.toLowerCase().includes(q)||u.display_name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)));
+}
+function renderUsers(users) {
+  if (!users.length) { document.getElementById('users-table-body').innerHTML='<div class="empty">No users found.</div>'; return; }
+  const isSelfId=localStorage.getItem('pp_operator_id');
+  const rows=users.map(u=>{
+    const lastLogin=u.last_login_at?new Date(u.last_login_at).toLocaleDateString():'Never';
+    const isSelf=u.operator_id===isSelfId;
+    const statusBtn=u.status==='suspended'
+      ?`<button class="btn-sm success" onclick="setStatus('${u.id}','active','${esc(u.operator_id)}')">Activate</button>`
+      :`<button class="btn-sm danger" onclick="setStatus('${u.id}','suspended','${esc(u.operator_id)}')" ${isSelf?'disabled title="Cannot suspend yourself"':''}>Suspend</button>`;
+    return `<tr>
+      <td><div class="mono">${esc(u.operator_id)}</div><div style="font-size:0.78rem;color:var(--text3)">${esc(u.display_name)}</div></td>
+      <td style="font-size:0.8rem;color:var(--text3)">${esc(u.email)}</td>
+      <td><span class="badge badge-${u.role}">${u.role}</span></td>
+      <td><span class="badge badge-${u.status}">${u.status}</span></td>
+      <td style="font-size:0.8rem">${u.scan_count}</td>
+      <td style="font-size:0.8rem;color:var(--text3)">${lastLogin}</td>
+      <td><div class="actions">${statusBtn}<button class="btn-sm" onclick="openRoleModal('${u.id}','${esc(u.operator_id)}','${u.role}')">Role</button></div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('users-table-body').innerHTML=`<table class="data-table"><thead><tr><th>Operator</th><th>Email</th><th>Role</th><th>Status</th><th>Scans</th><th>Last Login</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function setStatus(userId,status,operatorId) {
+  if (!confirm(`${status==='suspended'?'Suspend':'Activate'} account "${operatorId}"?`)) return;
+  const resp=await apiFetch(`/api/admin/users/${userId}/status`,{method:'POST',body:JSON.stringify({status})});
+  if (!resp) return;
+  const body=await resp.json();
+  if (resp.ok) { toast(body.data.message); await loadUsers(); await loadStats(); }
+  else toast(body.error,true);
+}
+
+function openRoleModal(userId,operatorId,currentRole) {
+  pendingRoleUserId=userId; pendingRoleUserName=operatorId;
+  document.getElementById('role-modal-sub').textContent=`Changing role for: ${operatorId}`;
+  document.getElementById('role-select').value=currentRole;
+  document.getElementById('role-modal').classList.add('show');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+async function confirmRoleChange() {
+  const newRole=document.getElementById('role-select').value;
+  closeModal('role-modal');
+  const resp=await apiFetch(`/api/admin/users/${pendingRoleUserId}/role`,{method:'POST',body:JSON.stringify({role:newRole})});
+  if (!resp) return;
+  const body=await resp.json();
+  if (resp.ok) { toast(body.data.message); await loadUsers(); }
+  else toast(body.error,true);
+}
+
+async function loadLogins() {
+  const resp=await apiFetch('/api/admin/logins');
+  if (!resp) return;
+  const {data}=await resp.json();
+  allLogins=data.attempts||[];
+  renderLogins(allLogins);
+}
+function filterLogins() {
+  const q=document.getElementById('login-search').value.toLowerCase();
+  renderLogins(allLogins.filter(a=>a.operator_id.toLowerCase().includes(q)||(a.ip_address||'').toLowerCase().includes(q)));
+}
+function renderLogins(attempts) {
+  if (!attempts.length) { document.getElementById('logins-table-body').innerHTML='<div class="empty">No login attempts found.</div>'; return; }
+  const rows=attempts.map(a=>{
+    const date=a.attempted_at?new Date(a.attempted_at).toLocaleString():'—';
+    const badge=a.success?'<span class="badge badge-success">Success</span>':'<span class="badge badge-fail">Failed</span>';
+    const reason=a.failure_reason?`<span style="font-size:0.75rem;color:var(--text3);margin-left:6px">${esc(a.failure_reason)}</span>`:'';
+    return `<tr><td class="mono">${esc(a.operator_id)}</td><td style="font-family:'JetBrains Mono',monospace;font-size:0.8rem">${esc(a.ip_address||'—')}</td><td>${badge}${reason}</td><td style="font-size:0.8rem;color:var(--text3)">${date}</td></tr>`;
+  }).join('');
+  document.getElementById('logins-table-body').innerHTML=`<table class="data-table"><thead><tr><th>Operator</th><th>IP Address</th><th>Result</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function toast(msg,isError=false) {
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast show'+(isError?' error':'');
+  setTimeout(()=>{ el.className='toast'; },3000);
+}
+function toggleSidebar() {
+  const sb=document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  localStorage.setItem('pp_sidebar_collapsed',sb.classList.contains('collapsed'));
+}
+function setTheme(t) {
+  isDark=t==='dark';
+  document.documentElement.setAttribute('data-theme',t);
+  const lbl=document.getElementById('theme-label');
+  const ico=document.getElementById('theme-icon');
+  if(lbl) lbl.textContent=isDark?'Switch to Light Mode':'Switch to Dark Mode';
+  if(ico) ico.innerHTML=isDark?'&#9728;':'&#9790;';
+}
+function toggleTheme() { const n=isDark?'light':'dark'; localStorage.setItem('pp_theme',n); setTheme(n); }
+function logout() {
+  fetch(API_BASE+'/api/auth/logout',{method:'POST',headers:authHeaders()})
+    .finally(()=>{ localStorage.clear(); window.location.href='login.html'; });
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+(function(){
+  const handle=document.getElementById('resize-handle');
+  const sidebar=document.getElementById('sidebar');
+  if(!handle||!sidebar) return;
+  let dragging=false,startX,startW;
+  handle.addEventListener('mousedown',e=>{ dragging=true; startX=e.clientX; startW=sidebar.getBoundingClientRect().width; document.body.style.cursor='col-resize'; });
+  document.addEventListener('mousemove',e=>{ if(!dragging) return; sidebar.style.width=Math.max(180,Math.min(400,startW+e.clientX-startX))+'px'; });
+  document.addEventListener('mouseup',()=>{ dragging=false; document.body.style.cursor=''; });
+})();
+init();
+</script>
+</body>
+</html>
