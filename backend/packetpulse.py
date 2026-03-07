@@ -189,6 +189,178 @@ def _resolve_hostname(ip: str) -> str:
         return ""
 
 
+
+
+# ─────────────────────────────────────────────────────────────
+#  OS FINGERPRINTING
+#  Uses TTL from ping + open port signatures + hostname hints
+#  to make a best-effort OS guess. No raw sockets needed.
+# ─────────────────────────────────────────────────────────────
+
+# TTL thresholds — OS default TTLs degrade with each hop
+# Windows: 128, Linux/Mac: 64, Cisco/network: 255
+def _get_ttl(ip: str) -> int | None:
+    """
+    Extract TTL from ping response output.
+    Returns integer TTL or None if unavailable.
+    """
+    try:
+        is_win = platform.system().lower() == "windows"
+        param  = ["-n", "1", f"-w500"] if is_win else ["-c", "1", "-W", "1"]
+        result = subprocess.run(
+            ["ping"] + param + [ip],
+            capture_output=True, text=True, timeout=3
+        )
+        output = result.stdout + result.stderr
+        # Windows: "TTL=128", Linux: "ttl=64"
+        import re as _re
+        match = _re.search(r"[Tt][Tt][Ll]=(\d+)", output)
+        if match:
+            return int(match.group(1))
+    except Exception:
+        pass
+    return None
+
+
+def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
+    """
+    Best-effort OS fingerprinting using:
+    1. TTL value from ping
+    2. Open port signatures
+    3. Hostname pattern hints
+
+    Returns:
+        {
+            "os_guess":      "Windows",
+            "os_confidence": "medium",   # high / medium / low
+            "os_detail":     "Windows 10/Server (TTL=128, RDP open)",
+            "os_icon":       "windows"   # windows / linux / macos / network / unknown
+        }
+    """
+    ttl        = _get_ttl(ip)
+    port_nums  = {p["port"] for p in open_ports}
+    hints      = []
+    votes      = {"windows": 0, "linux": 0, "macos": 0, "network": 0}
+
+    # ── TTL analysis ─────────────────────────────────────────
+    if ttl is not None:
+        if ttl >= 240:
+            votes["network"] += 3
+            hints.append(f"TTL={ttl} (network device)")
+        elif ttl >= 110:
+            votes["windows"] += 3
+            hints.append(f"TTL={ttl} (Windows default 128)")
+        elif ttl >= 55:
+            votes["linux"] += 2
+            votes["macos"] += 2
+            hints.append(f"TTL={ttl} (Linux/macOS default 64)")
+        else:
+            hints.append(f"TTL={ttl} (many hops — inconclusive)")
+
+    # ── Port signature analysis ───────────────────────────────
+    # Windows-specific ports
+    if 3389 in port_nums:   # RDP
+        votes["windows"] += 3
+        hints.append("RDP open")
+    if 445 in port_nums:    # SMB
+        votes["windows"] += 2
+        hints.append("SMB open")
+    if 139 in port_nums:    # NetBIOS
+        votes["windows"] += 2
+        hints.append("NetBIOS open")
+    if 5985 in port_nums or 5986 in port_nums:  # WinRM
+        votes["windows"] += 2
+        hints.append("WinRM open")
+
+    # Linux-specific ports
+    if 22 in port_nums:     # SSH (common on Linux, rare on stock Windows)
+        votes["linux"] += 1
+        hints.append("SSH open")
+    if 2049 in port_nums:   # NFS
+        votes["linux"] += 2
+        hints.append("NFS open")
+    if 111 in port_nums:    # RPC
+        votes["linux"] += 1
+
+    # macOS-specific
+    if 548 in port_nums:    # AFP (Apple Filing Protocol)
+        votes["macos"] += 3
+        hints.append("AFP open")
+    if 5353 in port_nums:   # mDNS / Bonjour
+        votes["macos"] += 2
+        hints.append("mDNS/Bonjour")
+
+    # Network device ports
+    if 161 in port_nums:    # SNMP
+        votes["network"] += 2
+        hints.append("SNMP open")
+    if 23 in port_nums:     # Telnet (common on routers)
+        votes["network"] += 1
+        hints.append("Telnet open")
+
+    # Database servers (usually Linux)
+    db_ports = {3306, 5432, 27017, 6379, 9200}
+    if port_nums & db_ports:
+        votes["linux"] += 1
+
+    # ── Hostname pattern hints ────────────────────────────────
+    hn = (hostname or "").lower()
+    if any(w in hn for w in ["win", "desktop", "laptop", "workstation", "dc", "server"]):
+        votes["windows"] += 1
+    if any(w in hn for w in ["ubuntu", "debian", "centos", "fedora", "arch", "linux", "pi"]):
+        votes["linux"] += 2
+    if any(w in hn for w in ["macbook", "imac", "mac", "apple"]):
+        votes["macos"] += 2
+    if any(w in hn for w in ["router", "switch", "gateway", "cisco", "mikrotik", "ubnt"]):
+        votes["network"] += 2
+
+    # ── Determine winner ─────────────────────────────────────
+    if not any(votes.values()):
+        return {
+            "os_guess":      "Unknown",
+            "os_confidence": "low",
+            "os_detail":     "Insufficient data to determine OS",
+            "os_icon":       "unknown",
+        }
+
+    winner    = max(votes, key=votes.get)
+    top_score = votes[winner]
+    total     = sum(votes.values())
+
+    # Confidence based on how dominant the winner is
+    ratio = top_score / total if total else 0
+    if ratio >= 0.7 and top_score >= 4:
+        confidence = "high"
+    elif ratio >= 0.5 or top_score >= 3:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    # Human-readable OS names and detail strings
+    os_labels = {
+        "windows": "Windows",
+        "linux":   "Linux",
+        "macos":   "macOS",
+        "network": "Network Device",
+    }
+    os_details = {
+        "windows": "Windows (likely 10/11 or Server)",
+        "linux":   "Linux / Unix",
+        "macos":   "macOS / Apple",
+        "network": "Network Device (router/switch/appliance)",
+    }
+
+    detail = os_details[winner]
+    if hints:
+        detail += f" — {', '.join(hints[:3])}"
+
+    return {
+        "os_guess":      os_labels[winner],
+        "os_confidence": confidence,
+        "os_detail":     detail,
+        "os_icon":       winner,
+    }
+
 def _scan_ports(ip: str, ports: list[int]) -> list[dict]:
     """
     Probe each port in the list. Returns only the open ones,
@@ -255,7 +427,7 @@ def run_scan(
 
     # Pre-fill all as dead; live results overwrite below
     results: list[dict] = [
-        {"ip": ip, "is_up": False, "hostname": "", "ports": []}
+        {"ip": ip, "is_up": False, "hostname": "", "ports": [], "os_guess": None, "os_confidence": None, "os_detail": None, "os_icon": None}
         for ip in all_ips
     ]
 
@@ -286,11 +458,16 @@ def run_scan(
             try:
                 open_ports = future.result()
                 hostname   = _resolve_hostname(ip)
+                os_info    = _fingerprint_os(ip, open_ports, hostname)
                 results[ip_index[ip]] = {
-                    "ip":       ip,
-                    "is_up":    True,
-                    "hostname": hostname,
-                    "ports":    open_ports,
+                    "ip":           ip,
+                    "is_up":        True,
+                    "hostname":     hostname,
+                    "ports":        open_ports,
+                    "os_guess":     os_info["os_guess"],
+                    "os_confidence":os_info["os_confidence"],
+                    "os_detail":    os_info["os_detail"],
+                    "os_icon":      os_info["os_icon"],
                 }
             except Exception as e:
                 log.debug("Port scan error for %s: %s", ip, e)
