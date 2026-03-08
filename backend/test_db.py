@@ -10,8 +10,8 @@ def get_db_connection():
             port="5432", 
             
             database="demo-db", # Or your specific DB name
-            user="postgres",
-            password="culPepper12!",
+            user="postgres",    #insert db name
+            password="",        #insert db password
             
             # This ensures UUIDs and JSONB are handled as Python dicts/strings
             cursor_factory=psycopg2.extras.RealDictCursor 
