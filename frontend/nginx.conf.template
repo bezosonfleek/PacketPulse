@@ -54,7 +54,7 @@ server {
     #                     to the backend so it knows who called
     # proxy_http_version 1.1 — use HTTP/1.1 for keepalive support
     location /api/ {
-        proxy_pass         http://backend:8000;
+        proxy_pass          ${BACKEND_URL};
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
