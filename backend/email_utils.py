@@ -50,9 +50,9 @@ def _send(to_addr: str, subject: str, html_body: str, text_body: str):
     msg.attach(MIMEText(html_body, "html"))
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as server:
             server.ehlo()
-            server.starttls()
+            #server.starttls() 
             server.login(SMTP_USER, SMTP_PASS)
             server.sendmail(SMTP_FROM, to_addr, msg.as_string())
         log.info("Email sent to %s: %s", to_addr, subject)
