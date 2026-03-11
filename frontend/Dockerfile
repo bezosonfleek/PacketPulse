@@ -27,7 +27,7 @@ FROM nginx:alpine
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copy our custom Nginx config into place
-COPY nginx.conf /etc/nginx/conf.d/packetpulse.conf
+COPY nginx.conf.template /etc/nginx/templates/packetpulse.conf.template
 
 # Copy all frontend files into Nginx's serving directory
 # The . means "everything in the build context" (the frontend/ folder)
@@ -35,4 +35,5 @@ COPY nginx.conf /etc/nginx/conf.d/packetpulse.conf
 COPY . /usr/share/nginx/html/
 
 # Document that this container serves on port 80
+ENV BACKEND_URL=http://localhost:8000
 EXPOSE 80
