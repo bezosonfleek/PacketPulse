@@ -266,7 +266,7 @@ $$ LANGUAGE plpgsql;
 
 -- ────────────────────────────────────────────────────────────
 --  SEED: default admin account
---  Password is 'ChangeMe_Admin1!' — must be rotated on first
+--  Password is 'Me_Admin1!Change' — must be rotated on first
 --  login in any real deployment. The hash below was produced
 --  by bcrypt with 12 rounds.
 --  operator_id: pp_admin
@@ -283,9 +283,9 @@ VALUES (
     'pp_admin',
     'admin@packetpulse.local',
     'PacketPulse Admin',
-    -- bcrypt hash of 'ChangeMe_Admin1!' — REPLACE before production
-    '$2b$12$placeholder.hash.replace.before.deployment.use.bcrypt',
-    'security',
+    -- bcrypt hash of 'Me_Admin1!Change' 
+    '$2b$12$CJS8t3rGLrltm.VhNR2TL.yaIgSuAFYraW/JmGAL3W3FR7xlTsICS',
+    'admin',
     'active'
 )
 ON CONFLICT (operator_id) DO NOTHING;

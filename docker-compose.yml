@@ -1,4 +1,4 @@
-# ──────────────────────────────────────────────────────────────
+# 
 #  PacketPulse — Docker Compose
 #
 #  docker-compose.yml is the orchestration file.
@@ -22,13 +22,13 @@
 #    Named volumes persist across container restarts and
 #    docker-compose down. Your data survives unless you
 #    explicitly run: docker-compose down -v
-# ──────────────────────────────────────────────────────────────
+# 
 
 version: "3.9"
 
 services:
 
-  # ── DATABASE ───────────────────────────────────────────────
+  # DATABASE 
   # postgres:15-alpine = Postgres 15 on Alpine Linux (~240MB)
   #
   # POSTGRES_DB / USER / PASSWORD:
@@ -51,6 +51,8 @@ services:
   #   Postgres is ready and crash.
   db:
     image: postgres:15-alpine
+    ports:
+    - "5433:5432"                        #allow connection for example to pgamin
     restart: unless-stopped
     environment:
       POSTGRES_DB:       ${DB_NAME}
@@ -67,12 +69,9 @@ services:
       timeout:  5s
       retries:  10
 
-  # ── BACKEND ────────────────────────────────────────────────
+  # BACKEND 
   # build: ./backend
-  #   Docker reads backend/Dockerfile and builds the image.
-  #   The build context is the backend/ directory, so COPY .
-  #   in the Dockerfile copies backend/ contents.
-  #
+  #   Docker reads backend/Dockerfile and builds the image. The build context is the backend/ directory, so COPY . in the Dockerfile copies backend/ contents.
   # env_file: .env
   #   Loads all variables from .env into the container's
   #   environment. This is how DB_HOST, JWT_SECRET, SMTP_*
@@ -90,6 +89,8 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
+    ports:
+      - "8000:8000"
     env_file: .env
     depends_on:
       db:
@@ -97,7 +98,7 @@ services:
     networks:
       - packetpulse-net
 
-  # ── FRONTEND ───────────────────────────────────────────────
+  # FRONTEND 
   # build: ./frontend
   #   Docker reads frontend/Dockerfile and builds the image.
   #   The build context is the frontend/ directory.
@@ -121,19 +122,21 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      - db
     networks:
       - packetpulse-net
+    extra_hosts:
+      - host.docker.internal:host-gateway
 
 
-# ── NAMED VOLUMES ──────────────────────────────────────────
+# NAMED VOLUMES 
 # Declaring the volume here registers it with Docker.
 # Docker manages its location on the host filesystem.
 # You can inspect it with: docker volume inspect postgres-data
 volumes:
   postgres-data:
 
-# ── NETWORKS ───────────────────────────────────────────────
+# NETWORKS 
 # bridge = the default network driver.
 # Creates a private virtual network. Containers on it
 # can talk to each other. Traffic doesn't leave the host.
