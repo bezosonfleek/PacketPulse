@@ -17,10 +17,16 @@ FROM nginx:alpine
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copy our custom Nginx config into place
-COPY nginx.conf /etc/nginx/conf.d/packetpulse.conf
+COPY nginx.conf.template /etc/nginx/templates/packetpulse.conf.template
 
 # Copy all frontend files into Nginx's serving directory
 # Nginx serves files from /usr/share/nginx/html by default
 COPY . /usr/share/nginx/html/
 
+<<<<<<< HEAD
 EXPOSE 80
+=======
+# Document that this container serves on port 80
+ENV BACKEND_URL=http://localhost:8000
+EXPOSE 80
+>>>>>>> f4a685810492c670bd2d7ac3beb34fcb5a93c989

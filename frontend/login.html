@@ -438,8 +438,13 @@
       btnText.textContent = 'Authenticating…';
 
       try {
+<<<<<<< HEAD
       const resp = await fetch('/api/auth/login', {                           //for production
       //const resp = await fetch('http://localhost:8000/api/auth/login', {    //for dev only
+=======
+        const resp = await fetch('/api/auth/login', {                      //for production
+       //const resp = await fetch('http://localhost:8000/api/auth/login', {    //for dev only
+>>>>>>> f4a685810492c670bd2d7ac3beb34fcb5a93c989
 
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },

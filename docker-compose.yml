@@ -121,6 +121,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:80"
+    environment:
+      BACKEND_URL: http://host.docker.internal:8000
     depends_on:
       - db
     networks:
