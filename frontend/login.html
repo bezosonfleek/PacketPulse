@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/login.css">
-  
 </head>
 <body>
 
@@ -57,49 +56,26 @@
 
       <form class="form" id="login-form" onsubmit="handleSubmit(event)" novalidate>
 
-        <!-- Operator ID -->
         <div class="field-group">
           <label class="field-label" for="username">Operator ID</label>
           <div class="field-input-wrap">
-            <input
-              class="field-input"
-              type="text"
-              id="username"
-              name="username"
-              placeholder="operator@domain.local"
-              autocomplete="username"
-              spellcheck="false"
-              autocapitalize="none"
-            >
+            <input class="field-input" type="text" id="username" name="username" placeholder="operator@domain.local" autocomplete="username" spellcheck="false" autocapitalize="none">
             <span class="field-icon">@</span>
           </div>
           <div class="field-hint" id="username-hint">Operator ID is required.</div>
         </div>
 
-        <!-- Passphrase -->
         <div class="field-group">
           <label class="field-label" for="password">Passphrase</label>
           <div class="field-input-wrap">
-            <input
-              class="field-input"
-              type="password"
-              id="password"
-              name="password"
-              placeholder="••••••••••••"
-              autocomplete="current-password"
-            >
-            <button type="button" class="pw-toggle" id="pw-toggle" onclick="togglePw()" title="Show / hide">
-              SHOW
-            </button>
+            <input class="field-input" type="password" id="password" name="password" placeholder="••••••••••••" autocomplete="current-password">
+            <button type="button" class="pw-toggle" id="pw-toggle" onclick="togglePw()" title="Show / hide">SHOW</button>
           </div>
           <div class="field-hint" id="password-hint">Passphrase is required.</div>
         </div>
 
-        <!-- Row -->
         <div class="field-row">
-          <label class="check-label">
-            <input type="checkbox" id="remember"> Keep me signed in
-          </label>
+          <label class="check-label"><input type="checkbox" id="remember"> Keep me signed in</label>
           <a href="forgot-password.html" class="forgot-link">Forgot password →</a>
         </div>
 
@@ -117,7 +93,6 @@
           <div class="field-hint show" style="color:rgba(240,239,245,0.3)">Enter the 6-digit code from your authenticator app.</div>
         </div>
 
-        <!-- Submit -->
         <button type="submit" class="btn-submit" id="submit-btn">
           <div class="shimmer"></div>
           <span class="btn-text" id="btn-text">Authenticate</span>
@@ -138,12 +113,8 @@
         <!-- Security note -->
         <div class="security-note">
           <span class="sec-icon">🔒</span>
-          <div class="sec-text">
-            This session is encrypted end-to-end. All access attempts are logged and monitored. 
-            Unauthorised access is a criminal offence.
-          </div>
+          <div class="sec-text">This session is encrypted end-to-end. All access attempts are logged and monitored. Unauthorised access is a criminal offence.</div>
         </div>
-
       </form>
 
       <!-- Signup link -->
@@ -155,9 +126,7 @@
   </div>
 
   <script>
-    // ─────────────────────────────────────────
     //  CLOCK
-    // ─────────────────────────────────────────
     function updateClock() {
       const el = document.getElementById('corner-time');
       if (!el) return;
@@ -167,9 +136,7 @@
     updateClock();
     setInterval(updateClock, 1000);
 
-    // ─────────────────────────────────────────
     //  NETWORK TOPOLOGY CANVAS
-    // ─────────────────────────────────────────
     const canvas  = document.getElementById('netmap');
     const ctx     = canvas.getContext('2d');
 
@@ -324,9 +291,7 @@
     initNodes();
     draw();
 
-    // ─────────────────────────────────────────
     //  LIVE LOG FEED
-    // ─────────────────────────────────────────
     const logMessages = [
       ['ok',   '192.168.1.1',   'gateway — heartbeat OK'],
       ['info', '192.168.1.105', 'port scan initiated'],
@@ -380,9 +345,7 @@
     setTimeout(() => addLogLine(), 1500);
     setInterval(addLogLine, 2200);
 
-    // ─────────────────────────────────────────
     //  MFA INPUT — auto-advance & paste
-    // ─────────────────────────────────────────
     const mfaInputs = Array.from(document.querySelectorAll('.mfa-input'));
 
     mfaInputs.forEach((inp, i) => {
@@ -405,9 +368,7 @@
       });
     });
 
-    // ─────────────────────────────────────────
     //  PASSWORD TOGGLE
-    // ─────────────────────────────────────────
     function togglePw() {
       const inp = document.getElementById('password');
       const btn = document.getElementById('pw-toggle');
@@ -416,9 +377,7 @@
       btn.textContent = show ? 'HIDE' : 'SHOW';
     }
 
-    // ─────────────────────────────────────────
     //  FORM SUBMIT
-    // ─────────────────────────────────────────
     async function handleSubmit(e) {
       e.preventDefault();
       const username = document.getElementById('username').value.trim();
@@ -438,14 +397,8 @@
       btnText.textContent = 'Authenticating…';
 
       try {
-<<<<<<< HEAD
       const resp = await fetch('/api/auth/login', {                           //for production
       //const resp = await fetch('http://localhost:8000/api/auth/login', {    //for dev only
-=======
-        const resp = await fetch('/api/auth/login', {                      //for production
-       //const resp = await fetch('http://localhost:8000/api/auth/login', {    //for dev only
->>>>>>> f4a685810492c670bd2d7ac3beb34fcb5a93c989
-
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({ operator_id: username, password }),

@@ -14,159 +14,36 @@
     }
     @media (max-width: 700px) { .profile-grid { grid-template-columns: 1fr; } }
 
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--bdr);
-      border-radius: 10px;
-      box-shadow: var(--shadow-sm);
-      overflow: hidden;
-    }
-    .card-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--bdr);
-      background: var(--surface2);
-    }
-    .card-title {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--text);
-    }
+    .card {background: var(--surface);border: 1px solid var(--bdr);border-radius: 10px;box-shadow: var(--shadow-sm);overflow: hidden;}
+    .card-header {padding: 16px 20px;border-bottom: 1px solid var(--bdr);background: var(--surface2);}
+    .card-title {font-size: 0.875rem;font-weight: 600color: var(--text);}
     .card-body { padding: 20px; }
-
     .field { margin-bottom: 16px; }
     .field:last-child { margin-bottom: 0; }
-    .field label {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--text3);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
-    }
-    .field input, .field select {
-      width: 100%;
-      padding: 9px 12px;
-      border: 1px solid var(--bdr);
-      border-radius: 6px;
-      background: var(--surface);
-      color: var(--text);
-      font-size: 0.875rem;
-      font-family: inherit;
-      box-sizing: border-box;
-      transition: border-color 0.15s;
-    }
-    .field input:focus, .field select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    .field input:disabled {
-      background: var(--surface2);
-      color: var(--text3);
-      cursor: not-allowed;
-    }
-    .field .hint {
-      font-size: 0.75rem;
-      color: var(--text4);
-      margin-top: 4px;
-    }
-
-    .btn-save {
-      width: 100%;
-      padding: 10px;
-      border-radius: 6px;
-      border: none;
-      background: var(--accent);
-      color: #fff;
-      font-size: 0.875rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      margin-top: 4px;
-      transition: opacity 0.15s;
-    }
+    .field label {display: block;font-size: 0.75rem;font-weight: 600;color: var(--text3);text-transform: uppercase;letter-spacing: 0.05em;margin-bottom: 6px;}
+    .field input, .field select {width: 100%;padding: 9px 12px;border: 1px solid var(--bdr);border-radius: 6px;background: var(--surface);color: var(--text);font-size: 0.875rem;font-family: inherit;box-sizing: border-box;transition: border-color 0.15s;}
+    .field input:focus, .field select:focus {outline: none;border-color: var(--accent);}
+    .field input:disabled {background: var(--surface2);color: var(--text3);cursor: not-allowed;}
+    .field .hint {font-size: 0.75rem;color: var(--text4);margin-top: 4px;}
+    .btn-save {width: 100%;padding: 10px;border-radius: 6px;border: none;background: var(--accent);color: #fff;font-size: 0.875rem;font-weight: 600;cursor: pointer;font-family: inherit;margin-top: 4px;transition: opacity 0.15s;}
     .btn-save:hover { opacity: 0.88; }
     .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .msg {
-      font-size: 0.8rem;
-      padding: 8px 12px;
-      border-radius: 6px;
-      margin-top: 12px;
-      display: none;
-    }
+    .msg {font-size: 0.8rem;padding: 8px 12px;border-radius: 6px;margin-top: 12px;display: none;}
     .msg.show { display: block; }
     .msg.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
     .msg.error   { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red); }
-
-    .avatar {
-      width: 60px; height: 60px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: #fff;
-      font-size: 1.6rem;
-      font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 12px;
-      flex-shrink: 0;
-    }
-    .profile-identity {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 20px;
-      border-bottom: 1px solid var(--bdr);
-    }
-    .identity-text .name {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .identity-text .operator-id {
-      font-size: 0.8rem;
-      color: var(--text3);
-      font-family: 'JetBrains Mono', monospace;
-      margin-top: 2px;
-    }
-    .identity-text .role-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-top: 4px;
-      background: var(--accent-dim);
-      color: var(--accent);
-    }
+    .avatar {width: 60px; height: 60px;border-radius: 50%;background: var(--accent);color: #fff;font-size: 1.6rem;font-weight: 700;display: flex; align-items: center; justify-content: center;margin-bottom: 12px;flex-shrink: 0;}
+    .profile-identity {display: flex;align-items: center;gap: 16px;padding: 20px;border-bottom: 1px solid var(--bdr);}
+    .identity-text .name {font-size: 1.1rem;font-weight: 700;color: var(--text);}
+    .identity-text .operator-id {font-size: 0.8rem;color: var(--text3);font-family: 'JetBrains Mono', monospace;margin-top: 2px;}
+    .identity-text .role-badge {display: inline-block;padding: 2px 8px;border-radius: 10px;font-size: 0.7rem;font-weight: 600;text-transform: uppercase;letter-spacing: 0.04em;margin-top: 4px;background: var(--accent-dim);color: var(--accent);}
     .identity-text .role-badge.admin { background: #f5f3ff; color: #7c3aed; }
-
-    .readonly-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--bdr);
-      font-size: 0.875rem;
-    }
+    .readonly-row {display: flex;justify-content: space-between;align-items: center;padding: 10px 0;border-bottom: 1px solid var(--bdr);font-size: 0.875rem;}
     .readonly-row:last-child { border-bottom: none; }
     .readonly-row .rl { color: var(--text3); font-size: 0.8rem; }
     .readonly-row .rv { color: var(--text); font-weight: 500; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
-
-    .password-strength {
-      height: 4px;
-      border-radius: 2px;
-      background: var(--bdr);
-      margin-top: 6px;
-      overflow: hidden;
-    }
-    .password-strength-bar {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.3s, background 0.3s;
-      width: 0%;
-    }
+    .password-strength {height: 4px;border-radius: 2px;background: var(--bdr);margin-top: 6px;overflow: hidden;}
+    .password-strength-bar {height: 100%;border-radius: 2px;transition: width 0.3s, background 0.3s;width: 0%;}
   </style>
 </head>
 <body>
@@ -259,7 +136,6 @@
       </div>
     </div>
 
-    <!-- Edit profile -->
     <div class="card">
       <div class="card-header"><span class="card-title">Edit Profile</span></div>
       <div class="card-body">
@@ -290,7 +166,6 @@
       </div>
     </div>
 
-    <!-- Change password -->
     <div class="card">
       <div class="card-header"><span class="card-title">Change Password</span></div>
       <div class="card-body">
@@ -333,7 +208,6 @@ async function apiFetch(url, opts={}) {
 }
 
 async function init() {
-  // Sidebar state
   if (localStorage.getItem('pp_sidebar_collapsed')==='true')
     document.getElementById('sidebar').classList.add('collapsed');
 
@@ -343,7 +217,6 @@ async function init() {
   if (localStorage.getItem('pp_role')==='admin')
     document.getElementById('admin-nav').style.display = '';
 
-  // Theme
   setTheme(localStorage.getItem('pp_theme') || 'light');
   document.getElementById('theme-btn').addEventListener('click', toggleTheme);
 
