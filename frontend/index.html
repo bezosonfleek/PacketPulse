@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PacketPulse | Network Intelligence</title>
+  <title>PacketPulse</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/styles.css">
@@ -51,7 +51,6 @@
   <!-- TICKER -->
   <div class="ticker">
     <div class="ticker-inner">
-      <!-- Duplicate for seamless loop -->
       <span class="ticker-item">Host Discovery <span class="ticker-sep">///</span></span>
       <span class="ticker-item">Service Fingerprinting <span class="ticker-sep">///</span></span>
       <span class="ticker-item">Banner Grabbing <span class="ticker-sep">///</span></span>
@@ -71,7 +70,6 @@
     </div>
   </div>
 
-  <!-- STATS -->
   <div class="stats reveal">
     <div class="stat">
       <div class="stat-num">&lt;1s</div>
@@ -94,17 +92,17 @@
   <!-- FEATURE 1 -->
   <section id="features" class="feature-split reveal">
     <div class="split-text">
-      <div class="section-label">01 / Discovery</div>
+      <div class="section-label">01. Discovery</div>
       <h2 class="split-heading">Unmask your<br><em>Attack Surface.</em></h2>
       <p class="split-body">
-        PacketPulse runs a two-phase scan — rapid TCP knock sweep to find live hosts, 
+        PacketPulse runs a two-phase scan - rapid TCP knock sweep to find live hosts, 
         then full port enumeration only on confirmed targets. No wasted time, no false silence.
       </p>
       <ul class="feature-list">
         <li>Two-phase scan: discover first, enumerate second</li>
         <li>TCP fallback when ICMP is blocked by firewall</li>
         <li>Reverse DNS resolution for every live host</li>
-        <li>Configurable range from a single IP to full /24</li>
+        <li>Configurable range from a single IP to full subnet</li>
       </ul>
     </div>
     <div class="split-visual">
@@ -140,9 +138,7 @@
       <div class="section-label">02 / Intelligence</div>
       <h2 class="split-heading">Banners.<br><em>Versions.</em><br>Context.</h2>
       <p class="split-body">
-        Every open port gets interrogated. PacketPulse grabs service banners, 
-        extracts server versions, detects TLS endpoints, and categorises every 
-        finding across 9 service categories — all colour-coded.
+        Every open port gets interrogated. PacketPulse grabs service banners, extracts server versions, detects TLS endpoints and categorises every finding across 9 service categories - all colour-coded.
       </p>
       <ul class="feature-list">
         <li>Banner grabbing with HTTP Server header extraction</li>
