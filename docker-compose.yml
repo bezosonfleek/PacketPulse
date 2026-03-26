@@ -21,7 +21,6 @@
 #    Named volumes persist across container restarts and
 #    docker-compose down. Your data survives unless you
 #    explicitly run: docker-compose down -v
-# 
 
 version: "3.9"
 
@@ -68,67 +67,30 @@ services:
       timeout:  5s
       retries:  10
 
-  # BACKEND 
-  # build: ./backend
-  #   Docker reads backend/Dockerfile and builds the image. The build context is the backend/ directory, so COPY . in the Dockerfile copies backend/ contents.
-  # env_file: .env
-  #   Loads all variables from .env into the container's
-  #   environment. This is how DB_HOST, JWT_SECRET, SMTP_*
-  #   etc. reach the Python process without being hardcoded.
-  #
-  # depends_on: db: condition: service_healthy
-  #   Docker won't start the backend until the db healthcheck
-  #   passes. This prevents "connection refused" crashes on
-  #   startup when Postgres is still initialising.
-  #
-  # networks:
-  #   Only on the internal network — not exposed to host.
-  #   Nginx proxies to it internally via http://backend:8000.
-  #   The backend port is intentionally NOT published here.
   backend:
     build: ./backend
     restart: unless-stopped
     ports:
       - "8000:8000"
+    network_mode: "host"
     env_file: .env
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - packetpulse-net
-
-  # FRONTEND 
-  # build: ./frontend
-  #   Docker reads frontend/Dockerfile and builds the image.
-  #   The build context is the frontend/ directory.
-  #
-  # ports: "3000:80"
-  #   Maps port 80 inside the container (Nginx) to port 3000
-  #   on your host machine. You access the app at:
-  #   http://localhost:3000
-  #
-  #   Format is always "HOST_PORT:CONTAINER_PORT"
-  #   To use port 80 on your host (no port in URL), change to:
-  #   "80:80" — but requires no other service using port 80.
-  #
-  # depends_on: backend
-  #   Nginx starts after backend is up. Technically Nginx
-  #   can start anytime since it just proxies, but this
-  #   ensures a clean startup order.
+    
   frontend:
     build: ./frontend
     restart: unless-stopped
     ports:
       - "3000:80"
     environment:
-      BACKEND_URL: http://host.docker.internal:8000
+      BACKEND_URL: http://localhost:8000
     depends_on:
       - db
     networks:
       - packetpulse-net
     extra_hosts:
       - host.docker.internal:host-gateway
-
 
 # NAMED VOLUMES 
 # Declaring the volume here registers it with Docker.
@@ -137,10 +99,8 @@ services:
 volumes:
   postgres-data:
 
-# NETWORKS 
-# bridge = the default network driver.
-# Creates a private virtual network. Containers on it
-# can talk to each other. Traffic doesn't leave the host.
+# NETWORKS (bridge = the default network driver.)
+# Creates a private virtual network. Containers on it can talk to each other. Traffic doesn't leave the host.
 networks:
   packetpulse-net:
     driver: bridge

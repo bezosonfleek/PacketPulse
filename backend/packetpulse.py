@@ -233,8 +233,7 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
         else:
             hints.append(f"TTL={ttl} (many hops — inconclusive)")
 
-    # Port signature analysis -
-    # Windows-specific ports
+    # Port signature analysis - Windows-specific ports
     if 3389 in port_nums:   # RDP
         votes["windows"] += 3
         hints.append("RDP open")
@@ -541,18 +540,13 @@ CVE_MAP: dict[int, list[dict]] = {
     ],
 }
 
-
 def _lookup_cves(port: int) -> list[dict]:
     """Return CVE list for a given port, empty list if none known."""
     return CVE_MAP.get(port, [])
 
-
-# -
-#  MAC ADDRESS DETECTION
-#  Reads the OS ARP cache after the host has been pinged/probed.
+#  MAC ADDRESS DETECTION - Reads the OS ARP cache after the host has been pinged/probed.
 #  Works on the local subnet only (Layer 2). No extra privileges.
 #  Windows: parses `arp -a`, Linux: reads /proc/net/arp
-# -
 def _get_mac(ip: str) -> tuple[str, str]:
     """
     Look up the MAC address for an IP from the OS ARP cache.
@@ -706,10 +700,7 @@ def _scan_ports(ip: str, ports: list[int]) -> list[dict]:
             })
     return open_ports
 
-
-# -
 #  PUBLIC: run_scan
-# -
 def run_scan(
     subnet: str,
     start:  int,
