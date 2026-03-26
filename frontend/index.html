@@ -10,8 +10,6 @@
   
 </head>
 <body>
-
-  <!-- NAV -->
   <nav>
     <a href="index.html" class="nav-logo" style="text-decoration:none">Packet<em>Pulse</em></a> 
     <div class="nav-right">
@@ -22,7 +20,6 @@
     </div>
   </nav>
 
-  <!-- HERO -->
   <section class="hero">
     <div class="hero-grid"></div>
     <div class="hero-glow"></div>
@@ -39,7 +36,7 @@
     <div class="hero-bottom">
       <p class="hero-desc">
         PacketPulse maps every heartbeat of your local infrastructure in real-time. 
-        Discover hosts, fingerprint services, and expose open ports — no agents, no dependencies, no noise.
+        Discover hosts, fingerprint services and expose open ports - no agents, no dependencies, no noise.
       </p>
       <div class="hero-actions">
         <a href="login.html" class="btn-primary" onclick="launchConsole(event)">Launch Console</a>
@@ -76,7 +73,7 @@
       <div class="stat-label">Discovery latency</div>
     </div>
     <div class="stat">
-      <div class="stat-num">47</div>
+      <div class="stat-num">47+</div>
       <div class="stat-label">Port definitions</div>
     </div>
     <div class="stat">
@@ -89,19 +86,14 @@
     </div>
   </div>
 
-  <!-- FEATURE 1 -->
   <section id="features" class="feature-split reveal">
     <div class="split-text">
       <div class="section-label">01. Discovery</div>
       <h2 class="split-heading">Unmask your<br><em>Attack Surface.</em></h2>
-      <p class="split-body">
-        PacketPulse runs a two-phase scan - rapid TCP knock sweep to find live hosts, 
-        then full port enumeration only on confirmed targets. No wasted time, no false silence.
-      </p>
+      <p class="split-body">PacketPulse runs a two-phase scan - rapid TCP knock sweep to find live hosts, then full port enumeration only on confirmed targets. No wasted time, no false silence.</p>
       <ul class="feature-list">
         <li>Two-phase scan: discover first, enumerate second</li>
         <li>TCP fallback when ICMP is blocked by firewall</li>
-        <li>Reverse DNS resolution for every live host</li>
         <li>Configurable range from a single IP to full subnet</li>
       </ul>
     </div>
@@ -132,18 +124,15 @@
     </div>
   </section>
 
-  <!-- FEATURE 2 -->
   <section class="feature-split reveal">
     <div class="split-text">
-      <div class="section-label">02 / Intelligence</div>
+      <div class="section-label">02. Intelligence</div>
       <h2 class="split-heading">Banners.<br><em>Versions.</em><br>Context.</h2>
-      <p class="split-body">
-        Every open port gets interrogated. PacketPulse grabs service banners, extracts server versions, detects TLS endpoints and categorises every finding across 9 service categories - all colour-coded.
-      </p>
+      <p class="split-body">Every open port gets interrogated. PacketPulse grabs service banners, extracts server versions, detects TLS endpoints and categorises every finding across 9 service categories - all colour-coded.</p>
       <ul class="feature-list">
         <li>Banner grabbing with HTTP Server header extraction</li>
         <li>TLS/SSL detection on all secured ports</li>
-        <li>9 categories: Remote, Web, Database, Mail, DevOps…</li>
+        <li>Multiple categories: Remote, Web, Database, Mail, DevOps…</li>
         <li>Filter results live without rescanning</li>
       </ul>
     </div>
@@ -171,14 +160,10 @@
     </div>
   </section>
 
-  <!-- CARDS SECTION -->
   <div id="stack" class="cards-section">
     <div class="cards-header reveal">
       <h2 class="cards-heading">The Pulse<br><em>Stack.</em></h2>
-      <p class="cards-sub">
-        Everything runs on the Python standard library. No pip install. No containers required. 
-        One file is all you need.
-      </p>
+      <p class="cards-sub">Everything runs on the Python standard library inside Docker without further installations needed .</p>
     </div>
 
     <div class="cards-grid reveal">
@@ -204,7 +189,7 @@
         <div class="c-card-icon">🔒</div>
         <div class="c-card-title">Danger Detection</div>
         <div class="c-card-body">Dedicated category for known risky ports — Metasploit, ADB, backdoor ranges, and more. Flagged immediately in the UI with red indicators.</div>
-        <span class="c-card-tag">9 categories</span>
+        <span class="c-card-tag">9+ categories</span>
       </div>
       <div class="c-card" data-num="05">
         <div class="c-card-icon">🐳</div>
@@ -221,7 +206,6 @@
     </div>
   </div>
 
-  <!-- CTA -->
   <section id="start" class="marquee-cta reveal">
     <div class="cta-overline">Get Started</div>
     <h2 class="cta-heading">Your network.<br><em>Fully visible.</em></h2>
@@ -235,17 +219,16 @@
     </div>
   </section>
 
-  <!-- FOOTER -->
   <footer>
     <div>
       <div class="foot-logo">Packet<em>Pulse</em></div>
-      <div class="foot-tagline" style="margin-top:6px">Built for defenders &bull; Agentless &bull; Open</div>
+      <div class="foot-tagline" style="margin-top:6px">Built for defenders &bull; Agentless &bull; &copy;Geoffrey Sakora 2026</div>
     </div>
     <div class="foot-links">
       <a href="#features" class="foot-link">Features</a>
       <a href="#stack" class="foot-link">Stack</a>
       <a href="login.html" class="foot-link" onclick="launchConsole(event)">Console</a>
-      <span class="foot-link" style="cursor:default">PP // 2026</span>
+      <span class="foot-link" style="cursor:default">PP - 2026</span>
     </div>
   </footer>
 

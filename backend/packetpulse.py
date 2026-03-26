@@ -1,7 +1,6 @@
 """
-scanner.py — Network scanning engine.
+packetpulse.py — Network scanning engine.
 
-This is the core scanning logic extracted from packetpulse.py.
 It has no knowledge of HTTP, auth, or the database — it just
 scans and returns results. Routes call into this module.
 
@@ -18,9 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 log = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────────
 #  PORT MAP  — port: (label, category)
-# ─────────────────────────────────────────────────────────────
 PORT_MAP = {
     # Remote Access
     22:    ("SSH",           "remote"),
@@ -84,19 +81,14 @@ PORT_MAP = {
     31337: ("Elite/Back",    "danger"),
 }
 
-# ─────────────────────────────────────────────────────────────
 #  TUNING CONSTANTS
-# ─────────────────────────────────────────────────────────────
 TCP_TIMEOUT    = 0.25   # seconds per port probe
 BANNER_TIMEOUT = 0.5    # seconds for banner grab
 MAX_WORKERS    = 150    # threads for port scanning phase
 PING_WORKERS   = 100    # threads for host discovery phase
 PROBE_PORTS    = (80, 443, 22, 445, 3389, 8080, 23, 21)  # fast discovery probes
 
-
-# ─────────────────────────────────────────────────────────────
 #  NETWORK DETAILS
-# ─────────────────────────────────────────────────────────────
 def get_network_details() -> dict:
     """
     Detect the server's local IP and derive the subnet prefix.
@@ -121,10 +113,7 @@ def get_network_details() -> dict:
         log.debug("get_network_details partial failure: %s", e)
     return details
 
-
-# ─────────────────────────────────────────────────────────────
 #  PHASE 1 — HOST DISCOVERY
-# ─────────────────────────────────────────────────────────────
 def _is_host_up(ip: str) -> bool:
     """
     TCP knock on common ports first (fast, no root needed).
@@ -152,10 +141,7 @@ def _is_host_up(ip: str) -> bool:
     except Exception:
         return False
 
-
-# ─────────────────────────────────────────────────────────────
 #  PHASE 2 — BANNER GRABBING
-# ─────────────────────────────────────────────────────────────
 def _grab_banner(ip: str, port: int) -> str:
     """
     Attempt to read a service banner from an open port.
@@ -178,10 +164,7 @@ def _grab_banner(ip: str, port: int) -> str:
     except Exception:
         return ""
 
-
-# ─────────────────────────────────────────────────────────────
 #  PHASE 2 — PORT SCAN (called only on confirmed live hosts)
-# ─────────────────────────────────────────────────────────────
 def _resolve_hostname(ip: str) -> str:
     try:
         return socket.gethostbyaddr(ip)[0]
@@ -189,14 +172,7 @@ def _resolve_hostname(ip: str) -> str:
         return ""
 
 
-
-
-# ─────────────────────────────────────────────────────────────
-#  OS FINGERPRINTING
-#  Uses TTL from ping + open port signatures + hostname hints
-#  to make a best-effort OS guess. No raw sockets needed.
-# ─────────────────────────────────────────────────────────────
-
+#  OS FINGERPRINTING - Uses TTL from ping + open port signatures + hostname hints to make a best-effort OS guess. No raw sockets needed.
 # TTL thresholds — OS default TTLs degrade with each hop
 # Windows: 128, Linux/Mac: 64, Cisco/network: 255
 def _get_ttl(ip: str) -> int | None:
@@ -242,7 +218,7 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     hints      = []
     votes      = {"windows": 0, "linux": 0, "macos": 0, "network": 0}
 
-    # ── TTL analysis ─────────────────────────────────────────
+    # TTL analysis
     if ttl is not None:
         if ttl >= 240:
             votes["network"] += 3
@@ -257,7 +233,7 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
         else:
             hints.append(f"TTL={ttl} (many hops — inconclusive)")
 
-    # ── Port signature analysis ───────────────────────────────
+    # Port signature analysis -
     # Windows-specific ports
     if 3389 in port_nums:   # RDP
         votes["windows"] += 3
@@ -303,7 +279,7 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     if port_nums & db_ports:
         votes["linux"] += 1
 
-    # ── Hostname pattern hints ────────────────────────────────
+    # Hostname pattern hints 
     hn = (hostname or "").lower()
     if any(w in hn for w in ["win", "desktop", "laptop", "workstation", "dc", "server"]):
         votes["windows"] += 1
@@ -314,7 +290,7 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     if any(w in hn for w in ["router", "switch", "gateway", "cisco", "mikrotik", "ubnt"]):
         votes["network"] += 2
 
-    # ── Determine winner ─────────────────────────────────────
+    # Determine winner 
     if not any(votes.values()):
         return {
             "os_guess":      "Unknown",
@@ -361,16 +337,14 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
         "os_icon":       winner,
     }
 
-
-# ─────────────────────────────────────────────────────────────
 #  CVE PORT MAP
 #  Static mapping of port → known CVEs for that service.
 #  Based on historically significant, widely-referenced CVEs.
 #  Each entry: (cve_id, cvss_score, severity, description)
 #  severity: critical / high / medium / low / info
-# ─────────────────────────────────────────────────────────────
+
 CVE_MAP: dict[int, list[dict]] = {
-    # ── SSH (22) ─────────────────────────────────────────────
+    # SSH (22) 
     22: [
         {"id": "CVE-2023-38408", "cvss": 9.8, "severity": "critical",
          "desc": "OpenSSH ssh-agent remote code execution via forwarded agent socket"},
@@ -381,14 +355,14 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2018-15473", "cvss": 5.3, "severity": "medium",
          "desc": "OpenSSH username enumeration via timing difference in auth responses"},
     ],
-    # ── Telnet (23) ──────────────────────────────────────────
+    # Telnet (23) 
     23: [
         {"id": "CVE-2011-4862",  "cvss": 10.0, "severity": "critical",
          "desc": "BSD telnetd remote code execution via encrypt_keyid buffer overflow"},
         {"id": "CVE-2020-10188", "cvss": 9.8,  "severity": "critical",
          "desc": "telnetd arbitrary RCE via environment variable injection (utility.c)"},
     ],
-    # ── FTP (21) ─────────────────────────────────────────────
+    # FTP (21) 
     21: [
         {"id": "CVE-2015-3306",  "cvss": 10.0, "severity": "critical",
          "desc": "ProFTPd mod_copy unauthenticated arbitrary file read/write via CPFR/CPTO"},
@@ -397,7 +371,7 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2010-4221",  "cvss": 10.0, "severity": "critical",
          "desc": "ProFTPd SQL injection via TELNET_IAC escape sequences"},
     ],
-    # ── HTTP (80) ────────────────────────────────────────────
+    # HTTP (80)
     80: [
         {"id": "CVE-2021-41773", "cvss": 7.5, "severity": "high",
          "desc": "Apache 2.4.49 path traversal and RCE via mod_cgi (actively exploited)"},
@@ -408,7 +382,7 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2017-5638",  "cvss": 10.0, "severity": "critical",
          "desc": "Apache Struts2 RCE via Content-Type header (Equifax breach vector)"},
     ],
-    # ── HTTPS (443) ──────────────────────────────────────────
+    # HTTPS (443) 
     443: [
         {"id": "CVE-2014-0160",  "cvss": 7.5, "severity": "high",
          "desc": "Heartbleed — OpenSSL TLS heartbeat read overrun leaks server memory"},
@@ -419,7 +393,7 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2021-3449",  "cvss": 5.9, "severity": "medium",
          "desc": "OpenSSL NULL pointer deref in TLSv1.2 renegotiation — remote DoS"},
     ],
-    # ── SMB (445) ────────────────────────────────────────────
+    # SMB (445)
     445: [
         {"id": "CVE-2017-0144",  "cvss": 8.1, "severity": "high",
          "desc": "EternalBlue — SMBv1 RCE used by WannaCry and NotPetya ransomware"},
@@ -430,7 +404,7 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2021-36942", "cvss": 7.5, "severity": "high",
          "desc": "PetitPotam — unauthenticated NTLM relay via MS-EFSRPC to NTLM relay"},
     ],
-    # ── RDP (3389) ───────────────────────────────────────────
+    # RDP (3389) -
     3389: [
         {"id": "CVE-2019-0708",  "cvss": 9.8, "severity": "critical",
          "desc": "BlueKeep — pre-auth RDP RCE on Windows 7/Server 2008 (wormable)"},
@@ -439,7 +413,7 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2012-0002",  "cvss": 9.3, "severity": "critical",
          "desc": "MS12-020 — RDP pre-auth double-free DoS / potential RCE"},
     ],
-    # ── VNC (5900/5901) ──────────────────────────────────────
+    # VNC (5900/5901) -
     5900: [
         {"id": "CVE-2019-15694", "cvss": 9.8, "severity": "critical",
          "desc": "LibVNCServer heap overflow in HandleCursorShape — RCE"},
@@ -450,7 +424,7 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2019-15694", "cvss": 9.8, "severity": "critical",
          "desc": "LibVNCServer heap overflow in HandleCursorShape — RCE"},
     ],
-    # ── MySQL (3306) ─────────────────────────────────────────
+    # MySQL (3306)
     3306: [
         {"id": "CVE-2012-2122",  "cvss": 5.1, "severity": "medium",
          "desc": "MySQL auth bypass — repeated auth attempts succeed due to memcmp timing"},
@@ -459,28 +433,28 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2021-27928", "cvss": 7.2, "severity": "high",
          "desc": "MariaDB/MySQL RCE via wsrep provider shared library path injection"},
     ],
-    # ── PostgreSQL (5432) ────────────────────────────────────
+    # PostgreSQL (5432)
     5432: [
         {"id": "CVE-2019-9193",  "cvss": 8.8, "severity": "high",
          "desc": "PostgreSQL COPY TO/FROM PROGRAM allows OS command execution (superuser)"},
         {"id": "CVE-2019-10164", "cvss": 8.8, "severity": "high",
          "desc": "PostgreSQL stack overflow in scram_verify_plain_password — potential RCE"},
     ],
-    # ── Redis (6379) ─────────────────────────────────────────
+    # Redis (6379)
     6379: [
         {"id": "CVE-2022-0543",  "cvss": 10.0, "severity": "critical",
          "desc": "Redis Lua sandbox escape allows arbitrary code execution on host"},
         {"id": "CVE-2021-32762", "cvss": 8.8, "severity": "high",
          "desc": "Redis integer overflow in COPY destination key processing — heap RCE"},
     ],
-    # ── MongoDB (27017) ──────────────────────────────────────
+    # MongoDB (27017) -
     27017: [
         {"id": "CVE-2021-20328", "cvss": 6.8, "severity": "medium",
          "desc": "MongoDB no TLS certificate validation — server identity unverified"},
         {"id": "CVE-2015-7882",  "cvss": 7.5, "severity": "high",
          "desc": "MongoDB LDAP auth bypass allows unauthorized access with empty password"},
     ],
-    # ── Elasticsearch (9200) ─────────────────────────────────
+    # Elasticsearch (9200) -
     9200: [
         {"id": "CVE-2021-22145", "cvss": 6.5, "severity": "medium",
          "desc": "Elasticsearch memory disclosure via pieced-together exception messages"},
@@ -489,70 +463,70 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2015-1427",  "cvss": 10.0, "severity": "critical",
          "desc": "Elasticsearch Groovy sandbox escape — unauthenticated RCE (Shellshock-class)"},
     ],
-    # ── MSSQL (1433) ─────────────────────────────────────────
+    # MSSQL (1433)
     1433: [
         {"id": "CVE-2020-0618",  "cvss": 8.8, "severity": "high",
          "desc": "SQL Server Reporting Services RCE via deserialization of report data"},
         {"id": "CVE-2019-1068",  "cvss": 8.8, "severity": "high",
          "desc": "SQL Server RCE via malformed OpenXML document in linked server query"},
     ],
-    # ── SMTP (25) ────────────────────────────────────────────
+    # SMTP (25)
     25: [
         {"id": "CVE-2020-7247",  "cvss": 9.8, "severity": "critical",
          "desc": "OpenSMTPD RCE via malformed sender address — pre-auth in default config"},
         {"id": "CVE-2019-15846", "cvss": 9.8, "severity": "critical",
          "desc": "Exim RCE via EHLO/HELO with string ending in backslash-null sequence"},
     ],
-    # ── LDAP (389) ───────────────────────────────────────────
+    # LDAP (389) -
     389: [
         {"id": "CVE-2021-44228", "cvss": 10.0, "severity": "critical",
          "desc": "Log4Shell — JNDI LDAP lookup in log messages triggers RCE (Log4j 2.x)"},
         {"id": "CVE-2017-8563",  "cvss": 8.1, "severity": "high",
          "desc": "Windows LDAP elevation of privilege via NTLM pass-through auth relay"},
     ],
-    # ── Docker (2375) ────────────────────────────────────────
+    # Docker (2375)-
     2375: [
         {"id": "CVE-2019-5736",  "cvss": 8.6, "severity": "high",
          "desc": "runc container escape — overwrite host runc binary via /proc/self/exe"},
         {"id": "CVE-2020-15257", "cvss": 5.2, "severity": "medium",
          "desc": "containerd UNIX socket privilege escalation via abstract namespace"},
     ],
-    # ── Kubernetes (6443) ────────────────────────────────────
+    # Kubernetes (6443)
     6443: [
         {"id": "CVE-2018-1002105", "cvss": 9.8, "severity": "critical",
          "desc": "Kubernetes API server privilege escalation via backend connection upgrade"},
         {"id": "CVE-2019-11247",   "cvss": 8.1, "severity": "high",
          "desc": "Kubernetes API server allows access to cluster-scoped resources as namespace resources"},
     ],
-    # ── HTTP-ALT (8080) ──────────────────────────────────────
+    # HTTP-ALT (8080) -
     8080: [
         {"id": "CVE-2021-41773", "cvss": 7.5, "severity": "high",
          "desc": "Apache 2.4.49 path traversal and RCE — often runs on alt HTTP ports"},
         {"id": "CVE-2020-9484",  "cvss": 7.0, "severity": "high",
          "desc": "Apache Tomcat RCE via deserialization when PersistentManager is configured"},
     ],
-    # ── SNMP (161) ───────────────────────────────────────────
+    # SNMP (161) -
     161: [
         {"id": "CVE-2017-6736",  "cvss": 9.8, "severity": "critical",
          "desc": "Cisco IOS SNMP RCE via crafted SNMP packet — buffer overflow in subsystem"},
         {"id": "CVE-2002-0013",  "cvss": 10.0, "severity": "critical",
          "desc": "SNMP v1 trap handling multiple buffer overflows — affects many vendors"},
     ],
-    # ── NetBIOS (139) ────────────────────────────────────────
+    # NetBIOS (139)-
     139: [
         {"id": "CVE-2017-0143",  "cvss": 8.1, "severity": "high",
          "desc": "EternalBlue variant targeting NetBIOS/SMB — same WannaCry attack chain"},
         {"id": "CVE-2008-4250",  "cvss": 10.0, "severity": "critical",
          "desc": "MS08-067 — Windows Server Service RCE via crafted RPC request (Conficker)"},
     ],
-    # ── NFS (2049) ───────────────────────────────────────────
+    # NFS (2049) -
     2049: [
         {"id": "CVE-2017-12136", "cvss": 7.8, "severity": "high",
          "desc": "Linux kernel NFS xdr_decode_string_inplace — denial of service"},
         {"id": "CVE-2019-3010",  "cvss": 8.8, "severity": "high",
          "desc": "Oracle Solaris NFS local privilege escalation via kernel module"},
     ],
-    # ── Metasploit / Backdoor ports ──────────────────────────
+    # Metasploit / Backdoor ports -
     4444: [
         {"id": "INDICATOR-4444", "cvss": 10.0, "severity": "critical",
          "desc": "Default Metasploit payload listener port — active exploitation likely"},
@@ -573,12 +547,12 @@ def _lookup_cves(port: int) -> list[dict]:
     return CVE_MAP.get(port, [])
 
 
-# ─────────────────────────────────────────────────────────────
+# -
 #  MAC ADDRESS DETECTION
 #  Reads the OS ARP cache after the host has been pinged/probed.
 #  Works on the local subnet only (Layer 2). No extra privileges.
 #  Windows: parses `arp -a`, Linux: reads /proc/net/arp
-# ─────────────────────────────────────────────────────────────
+# -
 def _get_mac(ip: str) -> tuple[str, str]:
     """
     Look up the MAC address for an IP from the OS ARP cache.
@@ -733,9 +707,9 @@ def _scan_ports(ip: str, ports: list[int]) -> list[dict]:
     return open_ports
 
 
-# ─────────────────────────────────────────────────────────────
+# -
 #  PUBLIC: run_scan
-# ─────────────────────────────────────────────────────────────
+# -
 def run_scan(
     subnet: str,
     start:  int,
@@ -780,7 +754,7 @@ def run_scan(
         for ip in all_ips
     ]
 
-    # ── Phase 1: host discovery ──────────────────────────────
+    # Phase 1: host discovery 
     log.info("Scan phase 1: discovering %d hosts on %s", len(all_ips), subnet)
     alive: list[str] = []
     with ThreadPoolExecutor(max_workers=PING_WORKERS) as ex:
@@ -798,7 +772,7 @@ def run_scan(
     if not alive:
         return results
 
-    # ── Phase 2: port scan on live hosts only ────────────────
+    # Phase 2: port scan on live hosts only -
     log.info("Scan phase 2: port scanning %d live hosts", len(alive))
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
         futures = {ex.submit(_scan_ports, ip, ports): ip for ip in alive}

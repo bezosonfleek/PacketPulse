@@ -5,34 +5,20 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PacketPulse — Scan History</title>
   <link rel="stylesheet" href="assets/style.css">
+   <link rel="stylesheet" href="assets/app.css">
+    <link rel="stylesheet" href="assets/styles.css">
+
+
   <style>
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 28px;
-    }
+    .stats-row {display: grid;grid-template-columns: repeat(4, 1fr);gap: 16px;margin-bottom: 28px;}
     @media (max-width: 800px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
-    .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--bdr);
-      border-radius: 10px;
-      padding: 20px 24px;
-      box-shadow: var(--shadow-sm);
-    }
+    .stat-card {background: var(--surface);border: 1px solid var(--bdr);border-radius: 10px;padding: 20px 24px;box-shadow: var(--shadow-sm);}
     .stat-card .num { font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 6px; }
     .stat-card .lbl { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
     .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-    .filter-bar input {
-      flex: 1; min-width: 200px; padding: 9px 14px;
-      border: 1px solid var(--bdr); border-radius: 6px;
-      background: var(--surface); color: var(--text); font-size: 0.875rem; font-family: inherit;
-    }
+    .filter-bar input {flex: 1; min-width: 200px; padding: 9px 14px;border: 1px solid var(--bdr); border-radius: 6px;background: var(--surface); color: var(--text); font-size: 0.875rem; font-family: inherit;}
     .filter-bar input:focus { outline: none; border-color: var(--accent); }
-    .filter-bar select {
-      padding: 9px 14px; border: 1px solid var(--bdr); border-radius: 6px;
-      background: var(--surface); color: var(--text); font-size: 0.875rem; font-family: inherit; cursor: pointer;
-    }
+    .filter-bar select {padding: 9px 14px; border: 1px solid var(--bdr); border-radius: 6px;background: var(--surface); color: var(--text); font-size: 0.875rem; font-family: inherit; cursor: pointer;}
     .table-wrap { background: var(--surface); border: 1px solid var(--bdr); border-radius: 10px; box-shadow: var(--shadow-sm); overflow: hidden; }
     .history-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .history-table th { background: var(--surface2); color: var(--text3); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--bdr); }

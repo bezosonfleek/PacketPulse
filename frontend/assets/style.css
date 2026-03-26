@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── CVE Badges ── */
+/* CVE Badges */
 .td-cve       { vertical-align: middle; padding: 6px 10px; min-width: 120px; }
 .cve-none-cell{ color: var(--text4); }
 .cve-none     { color: var(--text4); font-size: 0.82rem; }
@@ -21,9 +21,7 @@
 .sev-low      { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
 .sev-info     { background:#eff6ff; color:#1e40af; border-color:#bfdbfe; }
 
-/* ══════════════════════════════════════════
-   LIGHT THEME
-══════════════════════════════════════════ */
+/*LIGHT THEME*/
 :root, [data-theme="light"] {
   --bg:           #f4f5f7;
   --surface:      #ffffff;
@@ -53,9 +51,7 @@
   --shadow-lg:    0 12px 40px rgba(0,0,0,0.12);
 }
 
-/* ══════════════════════════════════════════
-   DARK THEME
-══════════════════════════════════════════ */
+/*DARK THEME */
 [data-theme="dark"] {
   --bg:           #0f1117;
   --surface:      #1a1d27;
@@ -85,9 +81,7 @@
   --shadow-lg:    0 12px 40px rgba(0,0,0,0.5);
 }
 
-/* ══════════════════════════════════════════
-   BASE
-══════════════════════════════════════════ */
+/* BASE */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -102,9 +96,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ══════════════════════════════════════════
-   LAYOUT  — sidebar + resize handle + main
-══════════════════════════════════════════ */
+/* LAYOUT  — sidebar + resize handle + main */
 .layout {
   display:    flex;
   min-height: 100vh;
@@ -146,7 +138,7 @@ body {
   min-width:  200px;   /* prevents text wrapping during resize */
 }
 
-/* ── Resize handle ── */
+/* Resize handle */
 .resize-handle {
   width:      5px;
   min-height: 100vh;
@@ -179,7 +171,7 @@ body {
   background: var(--accent);
 }
 
-/* ── Collapse toggle button ── */
+/* Collapse toggle button */
 .collapse-btn {
   display:         flex;
   align-items:     center;
@@ -217,9 +209,7 @@ body {
   transition: padding 0.28s;
 }
 
-/* ══════════════════════════════════════════
-   SIDEBAR CONTENT
-══════════════════════════════════════════ */
+/* SIDEBAR CONTENT */
 .sidebar-top {
   padding:      24px 20px 20px;
   border-bottom: 1px solid var(--sidebar-bdr);
@@ -374,9 +364,7 @@ body {
   color:      var(--sidebar-dim);
 }
 
-/* ══════════════════════════════════════════
-   MAIN CONTENT — SECTION HEADER
-══════════════════════════════════════════ */
+/* MAIN CONTENT — SECTION HEADER */
 .page-header {
   margin-bottom: 28px;
 }
@@ -393,9 +381,7 @@ body {
   color:      var(--text3);
 }
 
-/* ══════════════════════════════════════════
-   CARD BASE
-══════════════════════════════════════════ */
+/* CARD BASE */
 .card {
   background:    var(--surface);
   border:        1px solid var(--bdr);
@@ -420,9 +406,7 @@ body {
 }
 .card-body { padding: 22px; }
 
-/* ══════════════════════════════════════════
-   SCAN CONFIGURATION CARD
-══════════════════════════════════════════ */
+/* SCAN CONFIGURATION CARD */
 .scan-card { margin-bottom: 20px; }
 
 .input-row {
@@ -527,9 +511,7 @@ body {
 .cat-chip.active[data-cat="proxy"]    { color:#581c87;background:#faf5ff;border-color:#a855f7; }
 .cat-chip.active[data-cat="danger"]   { color:#7f1d1d;background:#fef2f2;border-color:#dc2626; }
 
-/* ══════════════════════════════════════════
-   PROGRESS — always visible during scan
-══════════════════════════════════════════ */
+/* PROGRESS — always visible during scan */
 .progress-card {
   margin-bottom: 20px;
   overflow:      hidden;
@@ -634,9 +616,7 @@ body {
   color:       var(--accent);
 }
 
-/* ══════════════════════════════════════════
-   EXPORT BANNER  — bold, unmissable
-══════════════════════════════════════════ */
+/* EXPORT BANNER  — bold, unmissable */
 .export-banner {
   display:       flex;
   align-items:   center;
@@ -712,7 +692,7 @@ body {
 .btn-dl.pdf:hover { background: #fee2e2; border-color: #f87171; }
 .btn-dl svg { width: 16px; height: 16px; flex-shrink: 0; }
 
-/* ── OS Fingerprint badges ── */
+/* OS Fingerprint badges */
 .os-badge {
   display:      inline-flex;
   align-items:  center;
@@ -769,9 +749,7 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* ══════════════════════════════════════════
-   RESULTS HEADER
-══════════════════════════════════════════ */
+/* RESULTS HEADER */
 .results-hdr {
   display:         flex;
   align-items:     center;
@@ -791,9 +769,7 @@ body {
   color:       var(--text3);
 }
 
-/* ══════════════════════════════════════════
-   HOST CARDS
-══════════════════════════════════════════ */
+/* HOST CARDS */
 .host-card {
   background:    var(--surface);
   border:        1px solid var(--bdr);
@@ -935,9 +911,8 @@ body {
 }
 .td-banner.empty { color:var(--text4); font-style:italic; font-family:'Inter',sans-serif; }
 
-/* ══════════════════════════════════════════
-   EMPTY STATE
-══════════════════════════════════════════ */
+/*
+   EMPTY STATE */
 .empty-state {
   text-align:    center;
   padding:       80px 40px;
@@ -949,9 +924,7 @@ body {
 .empty-title { font-family:'Syne',sans-serif; font-size:1.1rem; font-weight:800; color:var(--text2); margin-bottom:6px; }
 .empty-sub   { font-size:0.88rem; color:var(--text3); }
 
-/* ══════════════════════════════════════════
-   SCROLLBAR + FOCUS
-══════════════════════════════════════════ */
+/* SCROLLBAR + FOCUS */
 ::-webkit-scrollbar       { width:6px; height:6px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--bdr-strong); border-radius:3px; }

@@ -33,10 +33,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("main")
 
-
-# ─────────────────────────────────────────────────────────────
 #  RESPONSE HELPERS  (imported by route modules)
-# ─────────────────────────────────────────────────────────────
 def send_json(handler, data, status=200):
     body = json.dumps(data, default=str).encode()
     handler.send_response(status)
@@ -44,10 +41,8 @@ def send_json(handler, data, status=200):
     handler.end_headers()
     handler.wfile.write(body)
 
-
 def send_error(handler, message, status=400):
     send_json(handler, {"error": message}, status)
-
 
 def read_json_body(handler):
     length = int(handler.headers.get("Content-Length", 0))
@@ -58,10 +53,7 @@ def read_json_body(handler):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return None
 
-
-# Dev frontend origin — credentials: 'include' requires a specific
-# origin, not wildcard. In Docker/production, frontend and backend
-# share an origin via Nginx so this header can go back to *.
+# Dev frontend origin — credentials: 'include' requires a specific origin, not wildcard
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:3000")
 
 def _common_headers(handler, content_type, length):
@@ -74,10 +66,7 @@ def _common_headers(handler, content_type, length):
     handler.send_header("X-Content-Type-Options",         "nosniff")
     handler.send_header("X-Frame-Options",                "DENY")
 
-
-# ─────────────────────────────────────────────────────────────
 #  REQUEST HANDLER
-# ─────────────────────────────────────────────────────────────
 class PacketPulseHandler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
@@ -129,10 +118,8 @@ class PacketPulseHandler(BaseHTTPRequestHandler):
             log.exception("Unhandled error [%s %s]", method, path)
             send_error(self, "Internal server error.", 500)
 
-
-# ─────────────────────────────────────────────────────────────
 #  STARTUP / SHUTDOWN
-# ─────────────────────────────────────────────────────────────
+
 def _shutdown(server, signum, frame):
     log.info("Shutting down...")
     db.close_pool()
@@ -158,7 +145,6 @@ def main():
     finally:
         db.close_pool()
         log.info("Server stopped.")
-
 
 if __name__ == "__main__":
     main()
