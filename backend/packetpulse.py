@@ -745,7 +745,7 @@ def run_scan(
         for ip in all_ips
     ]
 
-    # Phase 1: host discovery 
+    # ── Phase 1: host discovery ──────────────────────────────
     log.info("Scan phase 1: discovering %d hosts on %s", len(all_ips), subnet)
     alive: list[str] = []
     with ThreadPoolExecutor(max_workers=PING_WORKERS) as ex:
@@ -763,7 +763,7 @@ def run_scan(
     if not alive:
         return results
 
-    # Phase 2: port scan on live hosts only -
+    # ── Phase 2: port scan on live hosts only ────────────────
     log.info("Scan phase 2: port scanning %d live hosts", len(alive))
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
         futures = {ex.submit(_scan_ports, ip, ports): ip for ip in alive}
