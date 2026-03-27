@@ -82,7 +82,7 @@ PORT_MAP = {
 }
 
 #  TUNING CONSTANTS
-TCP_TIMEOUT    = 0.25   # seconds per port probe
+TCP_TIMEOUT    = 0.5   # seconds per port probe
 BANNER_TIMEOUT = 0.5    # seconds for banner grab
 MAX_WORKERS    = 150    # threads for port scanning phase
 PING_WORKERS   = 100    # threads for host discovery phase
@@ -130,13 +130,13 @@ def _is_host_up(ip: str) -> bool:
 
     # ICMP fallback — may require elevated privileges on some systems
     try:
-        param = ["-n", "1", f"-w{300}"] if platform.system().lower() == "windows" \
+        param = ["-n", "1", f"-w{1000}"] if platform.system().lower() == "windows" \
                 else ["-c", "1", "-W", "1"]
         return subprocess.call(
             ["ping"] + param + [ip],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=2,
+            timeout=3,
         ) == 0
     except Exception:
         return False

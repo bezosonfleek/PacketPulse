@@ -44,13 +44,11 @@ services:
   #   (when the data directory is empty). This creates all your tables automatically.
 
   # healthcheck:
-  #   Docker will periodically run pg_isready to check if Postgres is accepting connections. Other services use
-  #   depends_on: condition: service_healthy to wait for this. Without healthcheck, the backend might start before
-  #   Postgres is ready and crash.
+  #   Docker will periodically run pg_isready to check if Postgres is accepting connections. Plus health check
   db:
     image: postgres:15-alpine
     ports:
-    - "5433:5432"                        #allow connection for example to pgamin
+    - "5433:5432"                        #allow connection for example to pgadmin
     restart: unless-stopped
     environment:
       POSTGRES_DB:       ${DB_NAME}
@@ -67,16 +65,18 @@ services:
       timeout:  5s
       retries:  10
 
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    network_mode: "host"
-    env_file: .env
-    depends_on:
-      db:
-        condition: service_healthy
+  #backend:
+    #build: ./backend
+    #restart: unless-stopped
+    ##ports:
+      ##- "8000:8000"
+    ##network_mode: "host"
+    #networks:
+      #- packetpulse-net
+    #env_file: .env
+    #depends_on:
+      #db:
+        #condition: service_healthy
     
   frontend:
     build: ./frontend
@@ -84,7 +84,7 @@ services:
     ports:
       - "3000:80"
     environment:
-      BACKEND_URL: http://localhost:8000
+      BACKEND_URL: http://host.internal.docker:8000
     depends_on:
       - db
     networks:
