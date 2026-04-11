@@ -1,7 +1,7 @@
 # PacketPulse — Docker Deployment
 
 ## Prerequisites - * Application is still in testing phase and I can't assure reliability
-- Docker Desktop installed (includes both docker and docker-compose)
+- Docker Desktop installed (includes both docker & docker-compose)
 - Git
 
 ## First-time setup
