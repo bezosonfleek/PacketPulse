@@ -1,54 +1,30 @@
-#  PacketPulse — Docker Compose
-#
-#  docker-compose.yml is the orchestration file.
-#  It defines all services (containers), how they're built,
-#  how they connect to each other, and what persists.
+#  PacketPulse - Docker Compose
 #
 #  SERVICES:
-#    db       — Postgres database
-#    backend  — Python HTTP server
-#    frontend — Nginx static server + API proxy
+#    db       - Postgres database (Docker)
+#    frontend - Nginx static server + API proxy (Docker)
 #
-#  NETWORKS:
-#    packetpulse-net — a private Docker bridge network.
-#    All three containers join this network. They can reach
-#    each other by service name (db, backend, frontend).
-#    Nothing outside Docker can reach them unless you
-#    explicitly publish a port.
+#  BACKEND runs natively on Windows via start.ps1
+#  giving it direct access to your physical network for scanning.
+#
+#  To start everything:    .\start.ps1
+#  To stop everything:     .\stop.ps1
 #
 #  VOLUMES:
-#    postgres-data — a named volume for Postgres data files.
-#    Named volumes persist across container restarts and
-#    docker-compose down. Your data survives unless you
-#    explicitly run: docker-compose down -v
+#    postgres-data - persists database across restarts.
+#    Only destroyed with: docker-compose down -v
 
 version: "3.9"
 
 services:
 
-  # DATABASE 
-  # postgres:15-alpine = Postgres 15 on Alpine Linux (~240MB)
-  #
-  # POSTGRES_DB / USER / PASSWORD:
-  #   These env vars are read by the official Postgres image
-  #   on first start to create the database and user.
-  #   They must match what db.py reads from .env.
-  #
-  # volumes:
-  #   postgres-data:/var/lib/postgresql/data
-  #   Postgres stores all data in /var/lib/postgresql/data
-  #   inside the container. Mapping it to a named volume means data survives container restarts and rebuilds.
-
-  #   ./init.sql:/docker-entrypoint-initdb.d/init.sql
-  #   Any .sql files in /docker-entrypoint-initdb.d/ are automatically executed by Postgres on FIRST start only
-  #   (when the data directory is empty). This creates all your tables automatically.
-
-  # healthcheck:
-  #   Docker will periodically run pg_isready to check if Postgres is accepting connections. Plus health check
+  # DATABASE
+  # Exposed on host port 5433 so native backend and pgAdmin can connect.
+  # init.sql runs automatically on first start to create all tables.
   db:
     image: postgres:15-alpine
     ports:
-    - "5433:5432"                        #allow connection for example to pgadmin
+      - "5433:5432"                        #allow connection for example to pgadmin
     restart: unless-stopped
     environment:
       POSTGRES_DB:       ${DB_NAME}
@@ -65,42 +41,30 @@ services:
       timeout:  5s
       retries:  10
 
-  #backend:
-    #build: ./backend
-    #restart: unless-stopped
-    ##ports:
-      ##- "8000:8000"
-    ##network_mode: "host"
-    #networks:
-      #- packetpulse-net
-    #env_file: .env
-    #depends_on:
-      #db:
-        #condition: service_healthy
-    
+  # FRONTEND
+  # Nginx serves static files and proxies /api/ to the native
+  # backend running on the Windows host at port 8000.
+  # host.docker.internal resolves to the Windows host IP from
+  # inside the container - this is how Nginx reaches the backend.
   frontend:
     build: ./frontend
     restart: unless-stopped
     ports:
       - "3000:80"
     environment:
-      BACKEND_URL: http://host.internal.docker:8000
+      BACKEND_URL: http://host.docker.internal:8000
     depends_on:
       - db
     networks:
       - packetpulse-net
     extra_hosts:
-      - host.docker.internal:host-gateway
+      - "host.docker.internal:host-gateway"
 
-# NAMED VOLUMES 
-# Declaring the volume here registers it with Docker.
-# Docker manages its location on the host filesystem.
-# You can inspect it with: docker volume inspect postgres-data
+# NAMED VOLUMES
 volumes:
   postgres-data:
 
-# NETWORKS (bridge = the default network driver.)
-# Creates a private virtual network. Containers on it can talk to each other. Traffic doesn't leave the host.
+# NETWORKS
 networks:
   packetpulse-net:
     driver: bridge

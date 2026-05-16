@@ -1,8 +1,7 @@
 -- ============================================================
 --  PacketPulse — Database Schema
 --  Runs automatically on first Postgres container start.
---  Order matters: tables with foreign keys come after the
---  tables they reference.
+--  Order matters: tables with foreign keys come after the tables they reference.
 -- ============================================================
 
 -- ────────────────────────────────────────────────────────────

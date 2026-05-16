@@ -1,7 +1,7 @@
 """
-packetpulse.py — Network scanning engine.
+packetpulse.py - Network scanning engine.
 
-It has no knowledge of HTTP, auth, or the database — it just
+It has no knowledge of HTTP, auth, or the database - it just
 scans and returns results. Routes call into this module.
 
 Public API:
@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 log = logging.getLogger(__name__)
 
-#  PORT MAP  — port: (label, category)
+#  PORT MAP  - port: (label, category)
 PORT_MAP = {
     # Remote Access
     22:    ("SSH",           "remote"),
@@ -82,16 +82,18 @@ PORT_MAP = {
 }
 
 #  TUNING CONSTANTS
-TCP_TIMEOUT    = 0.5   # seconds per port probe
+TCP_TIMEOUT    = 0.5    # seconds per port probe
 BANNER_TIMEOUT = 0.5    # seconds for banner grab
 MAX_WORKERS    = 150    # threads for port scanning phase
 PING_WORKERS   = 100    # threads for host discovery phase
 PROBE_PORTS    = (80, 443, 22, 445, 3389, 8080, 23, 21)  # fast discovery probes
 
+
 #  NETWORK DETAILS
 def get_network_details() -> dict:
     """
     Detect the server's local IP and derive the subnet prefix.
+    Finds the interface with a default gateway to avoid picking VMware, Docker, or WSL virtual adapters.
     Returns a dict safe to send directly to the frontend.
     """
     import urllib.request
@@ -101,10 +103,11 @@ def get_network_details() -> dict:
         "subnet_prefix": "192.168.1",
     }
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            details["local_ip"]      = s.getsockname()[0]
-            details["subnet_prefix"] = ".".join(details["local_ip"].split(".")[:-1])
+        local_ip = _get_primary_ip()
+        if local_ip:
+            details["local_ip"]      = local_ip
+            details["subnet_prefix"] = ".".join(local_ip.split(".")[:-1])
+
         req = urllib.request.Request("https://api.ipify.org?format=json")
         with urllib.request.urlopen(req, timeout=3) as resp:
             import json
@@ -113,12 +116,134 @@ def get_network_details() -> dict:
         log.debug("get_network_details partial failure: %s", e)
     return details
 
-#  PHASE 1 — HOST DISCOVERY
+
+def _get_primary_ip() -> str:
+    """
+    Find the IP address of the primary network interface.
+
+    Strategy:
+    1. Windows: parse 'route print 0.0.0.0' for the default route interface IP
+    2. Linux: try multiple gateway targets to find a non-virtual IP
+       - First try connecting to 8.8.8.8 (internet)
+       - If that returns a virtual/internal IP, scan all gateways
+         in /proc/net/route and connect to each, preferring IPs
+         that are NOT in known virtual ranges (Docker, WSL2, VMware)
+    3. Fallback: UDP socket to 8.8.8.8
+
+    Virtual ranges excluded: 172.x.x.x, 192.168.65.x, 192.168.44.x,
+    192.168.152.x, 10.0.x.x (WSL2/Docker/VMware internal ranges)
+    """
+    is_win = platform.system().lower() == "windows"
+
+    # Known virtual/internal IP prefixes to avoid
+    VIRTUAL_PREFIXES = (
+        "172.",
+        "192.168.65.",
+        "192.168.44.",
+        "192.168.152.",
+        "10.0.",
+        "127.",
+    )
+
+    def is_virtual(ip: str) -> bool:
+        return any(ip.startswith(p) for p in VIRTUAL_PREFIXES)
+
+    try:
+        if is_win:
+            # Windows: parse 'route print 0.0.0.0' output
+            # Output format: 0.0.0.0  0.0.0.0  <gateway>  <interface_ip>  <metric>
+            result = subprocess.run(
+                ["route", "print", "0.0.0.0"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                text=True, timeout=5
+            )
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if (len(parts) >= 5 and
+                        parts[0] == "0.0.0.0" and
+                        parts[1] == "0.0.0.0"):
+                    ip = parts[3]
+                    try:
+                        import ipaddress
+                        addr = ipaddress.ip_address(ip)
+                        if addr.is_private and not addr.is_loopback and not is_virtual(ip):
+                            return ip
+                    except Exception:
+                        pass
+
+        else:
+            # Linux / WSL2 / Docker with network_mode: host
+            # Step 1: collect all gateways from /proc/net/route
+            gateways = []
+            try:
+                with open("/proc/net/route") as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        # Only consider routes with a real gateway (not 00000000)
+                        if (len(parts) >= 4 and
+                                parts[1] == "00000000" and
+                                parts[2] != "00000000"):
+                            gw_hex = parts[2]
+                            gw_bytes = bytes.fromhex(gw_hex)
+                            gw_ip = socket.inet_ntoa(gw_bytes[::-1])
+                            gateways.append(gw_ip)
+            except Exception as e:
+                log.debug("Failed to read /proc/net/route: %s", e)
+
+            # Step 2: for each gateway, get the source IP the OS would use
+            # Prefer non-virtual IPs (physical network interfaces)
+            candidates = []
+            for gw in gateways:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                        s.settimeout(1)
+                        s.connect((gw, 80))
+                        src_ip = s.getsockname()[0]
+                        candidates.append(src_ip)
+                        log.debug("Gateway %s -> source IP %s", gw, src_ip)
+                except Exception:
+                    pass
+
+            # Also try connecting directly to internet
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.connect(("8.8.8.8", 80))
+                    candidates.append(s.getsockname()[0])
+            except Exception:
+                pass
+
+            # Return first non-virtual candidate
+            for ip in candidates:
+                if not is_virtual(ip) and ip != "0.0.0.0":
+                    log.debug("Selected primary IP: %s", ip)
+                    return ip
+
+            # All candidates are virtual - return the best one anyway
+            # (prefer non-loopback)
+            for ip in candidates:
+                if not ip.startswith("127.") and ip != "0.0.0.0":
+                    log.debug("All IPs virtual, returning best: %s", ip)
+                    return ip
+
+    except Exception as e:
+        log.debug("_get_primary_ip failed: %s", e)
+
+    # Final fallback
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+    except Exception:
+        pass
+
+    return ""
+
+
+#  PHASE 1 - HOST DISCOVERY
 def _is_host_up(ip: str) -> bool:
-    """
-    TCP knock on common ports first (fast, no root needed).
-    Falls back to ICMP ping if all TCP probes fail.
-    """
+    #TCP knock on common ports first (fast, no root needed). Falls back to ICMP ping if all TCP probes fail.
     for port in PROBE_PORTS:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -128,20 +253,46 @@ def _is_host_up(ip: str) -> bool:
         except OSError:
             pass
 
-    # ICMP fallback — may require elevated privileges on some systems
+    # ICMP fallback - may require elevated privileges on some systems
+    ping_success = False
     try:
         param = ["-n", "1", f"-w{1000}"] if platform.system().lower() == "windows" \
                 else ["-c", "1", "-W", "1"]
-        return subprocess.call(
+        ping_success = subprocess.call(
             ["ping"] + param + [ip],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=3,
+            timeout=4,
         ) == 0
     except Exception:
-        return False
+        pass
+    if ping_success:
+        return True
 
-#  PHASE 2 — BANNER GRABBING
+    # ARP cache check - catches devices that block TCP and ICMP
+    try:
+        import re as _re
+        result = subprocess.run(
+            ["arp", "-a", ip],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
+            text=True, timeout=3
+        )
+        match = _re.search(
+            r"([0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2})",
+            result.stdout, _re.IGNORECASE
+        )
+        if match:
+            mac = match.group(1)
+            if mac not in ("ff-ff-ff-ff-ff-ff", "00-00-00-00-00-00"):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+#  PHASE 2 - BANNER GRABBING
 def _grab_banner(ip: str, port: int) -> str:
     """
     Attempt to read a service banner from an open port.
@@ -164,7 +315,8 @@ def _grab_banner(ip: str, port: int) -> str:
     except Exception:
         return ""
 
-#  PHASE 2 — PORT SCAN (called only on confirmed live hosts)
+
+#  PHASE 2 - PORT SCAN (called only on confirmed live hosts)
 def _resolve_hostname(ip: str) -> str:
     try:
         return socket.gethostbyaddr(ip)[0]
@@ -172,8 +324,8 @@ def _resolve_hostname(ip: str) -> str:
         return ""
 
 
-#  OS FINGERPRINTING - Uses TTL from ping + open port signatures + hostname hints to make a best-effort OS guess. No raw sockets needed.
-# TTL thresholds — OS default TTLs degrade with each hop
+#  OS FINGERPRINTING - Uses TTL from ping + open port signatures + hostname hints
+# TTL thresholds - OS default TTLs degrade with each hop
 # Windows: 128, Linux/Mac: 64, Cisco/network: 255
 def _get_ttl(ip: str) -> int | None:
     """
@@ -182,13 +334,15 @@ def _get_ttl(ip: str) -> int | None:
     """
     try:
         is_win = platform.system().lower() == "windows"
-        param  = ["-n", "1", f"-w500"] if is_win else ["-c", "1", "-W", "1"]
+        param  = ["-n", "1", "-w", "500"] if is_win else ["-c", "1", "-W", "1"]
         result = subprocess.run(
             ["ping"] + param + [ip],
-            capture_output=True, text=True, timeout=3
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
+            text=True, timeout=3
         )
         output = result.stdout + result.stderr
-        # Windows: "TTL=128", Linux: "ttl=64"
         import re as _re
         match = _re.search(r"[Tt][Tt][Ll]=(\d+)", output)
         if match:
@@ -204,14 +358,6 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     1. TTL value from ping
     2. Open port signatures
     3. Hostname pattern hints
-
-    Returns:
-        {
-            "os_guess":      "Windows",
-            "os_confidence": "medium",   # high / medium / low
-            "os_detail":     "Windows 10/Server (TTL=128, RDP open)",
-            "os_icon":       "windows"   # windows / linux / macos / network / unknown
-        }
     """
     ttl        = _get_ttl(ip)
     port_nums  = {p["port"] for p in open_ports}
@@ -231,45 +377,45 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
             votes["macos"] += 2
             hints.append(f"TTL={ttl} (Linux/macOS default 64)")
         else:
-            hints.append(f"TTL={ttl} (many hops — inconclusive)")
+            hints.append(f"TTL={ttl} (many hops - inconclusive)")
 
     # Port signature analysis - Windows-specific ports
-    if 3389 in port_nums:   # RDP
+    if 3389 in port_nums:
         votes["windows"] += 3
         hints.append("RDP open")
-    if 445 in port_nums:    # SMB
+    if 445 in port_nums:
         votes["windows"] += 2
         hints.append("SMB open")
-    if 139 in port_nums:    # NetBIOS
+    if 139 in port_nums:
         votes["windows"] += 2
         hints.append("NetBIOS open")
-    if 5985 in port_nums or 5986 in port_nums:  # WinRM
+    if 5985 in port_nums or 5986 in port_nums:
         votes["windows"] += 2
         hints.append("WinRM open")
 
     # Linux-specific ports
-    if 22 in port_nums:     # SSH (common on Linux, rare on stock Windows)
+    if 22 in port_nums:
         votes["linux"] += 1
         hints.append("SSH open")
-    if 2049 in port_nums:   # NFS
+    if 2049 in port_nums:
         votes["linux"] += 2
         hints.append("NFS open")
-    if 111 in port_nums:    # RPC
+    if 111 in port_nums:
         votes["linux"] += 1
 
     # macOS-specific
-    if 548 in port_nums:    # AFP (Apple Filing Protocol)
+    if 548 in port_nums:
         votes["macos"] += 3
         hints.append("AFP open")
-    if 5353 in port_nums:   # mDNS / Bonjour
+    if 5353 in port_nums:
         votes["macos"] += 2
         hints.append("mDNS/Bonjour")
 
     # Network device ports
-    if 161 in port_nums:    # SNMP
+    if 161 in port_nums:
         votes["network"] += 2
         hints.append("SNMP open")
-    if 23 in port_nums:     # Telnet (common on routers)
+    if 23 in port_nums:
         votes["network"] += 1
         hints.append("Telnet open")
 
@@ -278,7 +424,7 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     if port_nums & db_ports:
         votes["linux"] += 1
 
-    # Hostname pattern hints 
+    # Hostname pattern hints
     hn = (hostname or "").lower()
     if any(w in hn for w in ["win", "desktop", "laptop", "workstation", "dc", "server"]):
         votes["windows"] += 1
@@ -289,7 +435,7 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     if any(w in hn for w in ["router", "switch", "gateway", "cisco", "mikrotik", "ubnt"]):
         votes["network"] += 2
 
-    # Determine winner 
+    # Determine winner
     if not any(votes.values()):
         return {
             "os_guess":      "Unknown",
@@ -302,7 +448,6 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     top_score = votes[winner]
     total     = sum(votes.values())
 
-    # Confidence based on how dominant the winner is
     ratio = top_score / total if total else 0
     if ratio >= 0.7 and top_score >= 4:
         confidence = "high"
@@ -311,7 +456,6 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     else:
         confidence = "low"
 
-    # Human-readable OS names and detail strings
     os_labels = {
         "windows": "Windows",
         "linux":   "Linux",
@@ -327,7 +471,7 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
 
     detail = os_details[winner]
     if hints:
-        detail += f" — {', '.join(hints[:3])}"
+        detail += f" - {', '.join(hints[:3])}"
 
     return {
         "os_guess":      os_labels[winner],
@@ -337,13 +481,8 @@ def _fingerprint_os(ip: str, open_ports: list[dict], hostname: str) -> dict:
     }
 
 #  CVE PORT MAP
-#  Static mapping of port → known CVEs for that service.
-#  Based on historically significant, widely-referenced CVEs.
-#  Each entry: (cve_id, cvss_score, severity, description)
-#  severity: critical / high / medium / low / info
-
 CVE_MAP: dict[int, list[dict]] = {
-    # SSH (22) 
+    # SSH (22)
     22: [
         {"id": "CVE-2023-38408", "cvss": 9.8, "severity": "critical",
          "desc": "OpenSSH ssh-agent remote code execution via forwarded agent socket"},
@@ -354,19 +493,19 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2018-15473", "cvss": 5.3, "severity": "medium",
          "desc": "OpenSSH username enumeration via timing difference in auth responses"},
     ],
-    # Telnet (23) 
+    # Telnet (23)
     23: [
         {"id": "CVE-2011-4862",  "cvss": 10.0, "severity": "critical",
          "desc": "BSD telnetd remote code execution via encrypt_keyid buffer overflow"},
         {"id": "CVE-2020-10188", "cvss": 9.8,  "severity": "critical",
          "desc": "telnetd arbitrary RCE via environment variable injection (utility.c)"},
     ],
-    # FTP (21) 
+    # FTP (21)
     21: [
         {"id": "CVE-2015-3306",  "cvss": 10.0, "severity": "critical",
          "desc": "ProFTPd mod_copy unauthenticated arbitrary file read/write via CPFR/CPTO"},
         {"id": "CVE-2011-2523",  "cvss": 10.0, "severity": "critical",
-         "desc": "vsftpd 2.3.4 backdoor — connects to port 6200 on smiley-face username"},
+         "desc": "vsftpd 2.3.4 backdoor - connects to port 6200 on smiley-face username"},
         {"id": "CVE-2010-4221",  "cvss": 10.0, "severity": "critical",
          "desc": "ProFTPd SQL injection via TELNET_IAC escape sequences"},
     ],
@@ -375,58 +514,58 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2021-41773", "cvss": 7.5, "severity": "high",
          "desc": "Apache 2.4.49 path traversal and RCE via mod_cgi (actively exploited)"},
         {"id": "CVE-2021-42013", "cvss": 9.8, "severity": "critical",
-         "desc": "Apache 2.4.49-2.4.50 path traversal bypass — RCE without mod_cgi"},
+         "desc": "Apache 2.4.49-2.4.50 path traversal bypass - RCE without mod_cgi"},
         {"id": "CVE-2022-22965", "cvss": 9.8, "severity": "critical",
-         "desc": "Spring4Shell — Spring MVC RCE via data binding on JDK 9+"},
+         "desc": "Spring4Shell - Spring MVC RCE via data binding on JDK 9+"},
         {"id": "CVE-2017-5638",  "cvss": 10.0, "severity": "critical",
          "desc": "Apache Struts2 RCE via Content-Type header (Equifax breach vector)"},
     ],
-    # HTTPS (443) 
+    # HTTPS (443)
     443: [
         {"id": "CVE-2014-0160",  "cvss": 7.5, "severity": "high",
-         "desc": "Heartbleed — OpenSSL TLS heartbeat read overrun leaks server memory"},
+         "desc": "Heartbleed - OpenSSL TLS heartbeat read overrun leaks server memory"},
         {"id": "CVE-2014-3566",  "cvss": 3.4, "severity": "low",
-         "desc": "POODLE — SSLv3 CBC padding oracle allows MITM decryption"},
+         "desc": "POODLE - SSLv3 CBC padding oracle allows MITM decryption"},
         {"id": "CVE-2016-2107",  "cvss": 5.9, "severity": "medium",
-         "desc": "OpenSSL AES-NI CBC padding oracle — MITM plaintext recovery"},
+         "desc": "OpenSSL AES-NI CBC padding oracle - MITM plaintext recovery"},
         {"id": "CVE-2021-3449",  "cvss": 5.9, "severity": "medium",
-         "desc": "OpenSSL NULL pointer deref in TLSv1.2 renegotiation — remote DoS"},
+         "desc": "OpenSSL NULL pointer deref in TLSv1.2 renegotiation - remote DoS"},
     ],
     # SMB (445)
     445: [
         {"id": "CVE-2017-0144",  "cvss": 8.1, "severity": "high",
-         "desc": "EternalBlue — SMBv1 RCE used by WannaCry and NotPetya ransomware"},
+         "desc": "EternalBlue - SMBv1 RCE used by WannaCry and NotPetya ransomware"},
         {"id": "CVE-2017-0145",  "cvss": 8.1, "severity": "high",
-         "desc": "EternalRomance — SMBv1 RCE via transaction request out-of-bounds write"},
+         "desc": "EternalRomance - SMBv1 RCE via transaction request out-of-bounds write"},
         {"id": "CVE-2020-0796",  "cvss": 10.0, "severity": "critical",
-         "desc": "SMBGhost — SMBv3.1.1 compression RCE without authentication"},
+         "desc": "SMBGhost - SMBv3.1.1 compression RCE without authentication"},
         {"id": "CVE-2021-36942", "cvss": 7.5, "severity": "high",
-         "desc": "PetitPotam — unauthenticated NTLM relay via MS-EFSRPC to NTLM relay"},
+         "desc": "PetitPotam - unauthenticated NTLM relay via MS-EFSRPC to NTLM relay"},
     ],
-    # RDP (3389) -
+    # RDP (3389)
     3389: [
         {"id": "CVE-2019-0708",  "cvss": 9.8, "severity": "critical",
-         "desc": "BlueKeep — pre-auth RDP RCE on Windows 7/Server 2008 (wormable)"},
+         "desc": "BlueKeep - pre-auth RDP RCE on Windows 7/Server 2008 (wormable)"},
         {"id": "CVE-2019-1181",  "cvss": 9.8, "severity": "critical",
-         "desc": "DejaBlue — RDP pre-auth RCE on Windows 8/10/Server 2012-2019"},
+         "desc": "DejaBlue - RDP pre-auth RCE on Windows 8/10/Server 2012-2019"},
         {"id": "CVE-2012-0002",  "cvss": 9.3, "severity": "critical",
-         "desc": "MS12-020 — RDP pre-auth double-free DoS / potential RCE"},
+         "desc": "MS12-020 - RDP pre-auth double-free DoS / potential RCE"},
     ],
-    # VNC (5900/5901) -
+    # VNC (5900/5901)
     5900: [
         {"id": "CVE-2019-15694", "cvss": 9.8, "severity": "critical",
-         "desc": "LibVNCServer heap overflow in HandleCursorShape — RCE"},
+         "desc": "LibVNCServer heap overflow in HandleCursorShape - RCE"},
         {"id": "CVE-2019-15681", "cvss": 7.5, "severity": "high",
          "desc": "LibVNCServer memory leak exposes stack/heap contents to clients"},
     ],
     5901: [
         {"id": "CVE-2019-15694", "cvss": 9.8, "severity": "critical",
-         "desc": "LibVNCServer heap overflow in HandleCursorShape — RCE"},
+         "desc": "LibVNCServer heap overflow in HandleCursorShape - RCE"},
     ],
     # MySQL (3306)
     3306: [
         {"id": "CVE-2012-2122",  "cvss": 5.1, "severity": "medium",
-         "desc": "MySQL auth bypass — repeated auth attempts succeed due to memcmp timing"},
+         "desc": "MySQL auth bypass - repeated auth attempts succeed due to memcmp timing"},
         {"id": "CVE-2016-6662",  "cvss": 9.8, "severity": "critical",
          "desc": "MySQL RCE via malicious my.cnf injection through SQL FILE privilege"},
         {"id": "CVE-2021-27928", "cvss": 7.2, "severity": "high",
@@ -437,30 +576,30 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2019-9193",  "cvss": 8.8, "severity": "high",
          "desc": "PostgreSQL COPY TO/FROM PROGRAM allows OS command execution (superuser)"},
         {"id": "CVE-2019-10164", "cvss": 8.8, "severity": "high",
-         "desc": "PostgreSQL stack overflow in scram_verify_plain_password — potential RCE"},
+         "desc": "PostgreSQL stack overflow in scram_verify_plain_password - potential RCE"},
     ],
     # Redis (6379)
     6379: [
         {"id": "CVE-2022-0543",  "cvss": 10.0, "severity": "critical",
          "desc": "Redis Lua sandbox escape allows arbitrary code execution on host"},
         {"id": "CVE-2021-32762", "cvss": 8.8, "severity": "high",
-         "desc": "Redis integer overflow in COPY destination key processing — heap RCE"},
+         "desc": "Redis integer overflow in COPY destination key processing - heap RCE"},
     ],
-    # MongoDB (27017) -
+    # MongoDB (27017)
     27017: [
         {"id": "CVE-2021-20328", "cvss": 6.8, "severity": "medium",
-         "desc": "MongoDB no TLS certificate validation — server identity unverified"},
+         "desc": "MongoDB no TLS certificate validation - server identity unverified"},
         {"id": "CVE-2015-7882",  "cvss": 7.5, "severity": "high",
          "desc": "MongoDB LDAP auth bypass allows unauthorized access with empty password"},
     ],
-    # Elasticsearch (9200) -
+    # Elasticsearch (9200)
     9200: [
         {"id": "CVE-2021-22145", "cvss": 6.5, "severity": "medium",
          "desc": "Elasticsearch memory disclosure via pieced-together exception messages"},
         {"id": "CVE-2014-3120",  "cvss": 7.5, "severity": "high",
          "desc": "Elasticsearch dynamic script RCE via Groovy/MVEL script engine"},
         {"id": "CVE-2015-1427",  "cvss": 10.0, "severity": "critical",
-         "desc": "Elasticsearch Groovy sandbox escape — unauthenticated RCE (Shellshock-class)"},
+         "desc": "Elasticsearch Groovy sandbox escape - unauthenticated RCE (Shellshock-class)"},
     ],
     # MSSQL (1433)
     1433: [
@@ -472,21 +611,21 @@ CVE_MAP: dict[int, list[dict]] = {
     # SMTP (25)
     25: [
         {"id": "CVE-2020-7247",  "cvss": 9.8, "severity": "critical",
-         "desc": "OpenSMTPD RCE via malformed sender address — pre-auth in default config"},
+         "desc": "OpenSMTPD RCE via malformed sender address - pre-auth in default config"},
         {"id": "CVE-2019-15846", "cvss": 9.8, "severity": "critical",
          "desc": "Exim RCE via EHLO/HELO with string ending in backslash-null sequence"},
     ],
-    # LDAP (389) -
+    # LDAP (389)
     389: [
         {"id": "CVE-2021-44228", "cvss": 10.0, "severity": "critical",
-         "desc": "Log4Shell — JNDI LDAP lookup in log messages triggers RCE (Log4j 2.x)"},
+         "desc": "Log4Shell - JNDI LDAP lookup in log messages triggers RCE (Log4j 2.x)"},
         {"id": "CVE-2017-8563",  "cvss": 8.1, "severity": "high",
          "desc": "Windows LDAP elevation of privilege via NTLM pass-through auth relay"},
     ],
-    # Docker (2375)-
+    # Docker (2375)
     2375: [
         {"id": "CVE-2019-5736",  "cvss": 8.6, "severity": "high",
-         "desc": "runc container escape — overwrite host runc binary via /proc/self/exe"},
+         "desc": "runc container escape - overwrite host runc binary via /proc/self/exe"},
         {"id": "CVE-2020-15257", "cvss": 5.2, "severity": "medium",
          "desc": "containerd UNIX socket privilege escalation via abstract namespace"},
     ],
@@ -497,56 +636,56 @@ CVE_MAP: dict[int, list[dict]] = {
         {"id": "CVE-2019-11247",   "cvss": 8.1, "severity": "high",
          "desc": "Kubernetes API server allows access to cluster-scoped resources as namespace resources"},
     ],
-    # HTTP-ALT (8080) -
+    # HTTP-ALT (8080)
     8080: [
         {"id": "CVE-2021-41773", "cvss": 7.5, "severity": "high",
-         "desc": "Apache 2.4.49 path traversal and RCE — often runs on alt HTTP ports"},
+         "desc": "Apache 2.4.49 path traversal and RCE - often runs on alt HTTP ports"},
         {"id": "CVE-2020-9484",  "cvss": 7.0, "severity": "high",
          "desc": "Apache Tomcat RCE via deserialization when PersistentManager is configured"},
     ],
-    # SNMP (161) -
+    # SNMP (161)
     161: [
         {"id": "CVE-2017-6736",  "cvss": 9.8, "severity": "critical",
-         "desc": "Cisco IOS SNMP RCE via crafted SNMP packet — buffer overflow in subsystem"},
+         "desc": "Cisco IOS SNMP RCE via crafted SNMP packet - buffer overflow in subsystem"},
         {"id": "CVE-2002-0013",  "cvss": 10.0, "severity": "critical",
-         "desc": "SNMP v1 trap handling multiple buffer overflows — affects many vendors"},
+         "desc": "SNMP v1 trap handling multiple buffer overflows - affects many vendors"},
     ],
-    # NetBIOS (139)-
+    # NetBIOS (139)
     139: [
         {"id": "CVE-2017-0143",  "cvss": 8.1, "severity": "high",
-         "desc": "EternalBlue variant targeting NetBIOS/SMB — same WannaCry attack chain"},
+         "desc": "EternalBlue variant targeting NetBIOS/SMB - same WannaCry attack chain"},
         {"id": "CVE-2008-4250",  "cvss": 10.0, "severity": "critical",
-         "desc": "MS08-067 — Windows Server Service RCE via crafted RPC request (Conficker)"},
+         "desc": "MS08-067 - Windows Server Service RCE via crafted RPC request (Conficker)"},
     ],
-    # NFS (2049) -
+    # NFS (2049)
     2049: [
         {"id": "CVE-2017-12136", "cvss": 7.8, "severity": "high",
-         "desc": "Linux kernel NFS xdr_decode_string_inplace — denial of service"},
+         "desc": "Linux kernel NFS xdr_decode_string_inplace - denial of service"},
         {"id": "CVE-2019-3010",  "cvss": 8.8, "severity": "high",
          "desc": "Oracle Solaris NFS local privilege escalation via kernel module"},
     ],
-    # Metasploit / Backdoor ports -
+    # Metasploit / Backdoor ports
     4444: [
         {"id": "INDICATOR-4444", "cvss": 10.0, "severity": "critical",
-         "desc": "Default Metasploit payload listener port — active exploitation likely"},
+         "desc": "Default Metasploit payload listener port - active exploitation likely"},
     ],
     5555: [
         {"id": "INDICATOR-5555", "cvss": 9.0, "severity": "critical",
-         "desc": "Android Debug Bridge (ADB) open — full device control without auth"},
+         "desc": "Android Debug Bridge (ADB) open - full device control without auth"},
     ],
     31337: [
         {"id": "INDICATOR-31337", "cvss": 10.0, "severity": "critical",
-         "desc": "Elite/Back Orifice backdoor port — historic remote access trojan"},
+         "desc": "Elite/Back Orifice backdoor port - historic remote access trojan"},
     ],
 }
+
 
 def _lookup_cves(port: int) -> list[dict]:
     """Return CVE list for a given port, empty list if none known."""
     return CVE_MAP.get(port, [])
 
-#  MAC ADDRESS DETECTION - Reads the OS ARP cache after the host has been pinged/probed.
-#  Works on the local subnet only (Layer 2). No extra privileges.
-#  Windows: parses `arp -a`, Linux: reads /proc/net/arp
+
+#  MAC ADDRESS DETECTION
 def _get_mac(ip: str) -> tuple[str, str]:
     """
     Look up the MAC address for an IP from the OS ARP cache.
@@ -561,14 +700,16 @@ def _get_mac(ip: str) -> tuple[str, str]:
         if platform.system().lower() == "windows":
             result = subprocess.run(
                 ["arp", "-a", ip],
-                capture_output=True, text=True, timeout=3
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                text=True, timeout=3
             )
-            # Windows arp output: "  192.168.1.1    aa-bb-cc-dd-ee-ff    dynamic"
             match = _re.search(r"([0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2})", result.stdout, _re.IGNORECASE)
             if match:
                 mac = match.group(1).replace("-", ":").upper()
         else:
-            # Linux — /proc/net/arp is fastest, no subprocess needed
+            # Linux - /proc/net/arp is fastest, no subprocess needed
             try:
                 with open("/proc/net/arp") as f:
                     for line in f:
@@ -584,7 +725,10 @@ def _get_mac(ip: str) -> tuple[str, str]:
             if not mac:
                 result = subprocess.run(
                     ["arp", "-n", ip],
-                    capture_output=True, text=True, timeout=3
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    stdin=subprocess.DEVNULL,
+                    text=True, timeout=3
                 )
                 match = _re.search(r"([0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2})", result.stdout, _re.IGNORECASE)
                 if match:
@@ -596,8 +740,7 @@ def _get_mac(ip: str) -> tuple[str, str]:
     return mac, vendor
 
 
-# Compact OUI table — first 3 octets of MAC → vendor name
-# Covers the most common enterprise/consumer vendors
+# Compact OUI table - first 3 octets of MAC → vendor name
 _OUI_TABLE = {
     "00:50:56": "VMware",         "00:0C:29": "VMware",
     "00:1C:42": "Parallels",      "08:00:27": "VirtualBox",
@@ -648,6 +791,7 @@ _OUI_TABLE = {
     "94:57:A5": "HP",
 }
 
+
 def _oui_lookup(mac: str) -> str:
     """Return vendor name from first 3 octets of MAC, or empty string."""
     if not mac or len(mac) < 8:
@@ -655,12 +799,13 @@ def _oui_lookup(mac: str) -> str:
     oui = mac[:8].upper()
     return _OUI_TABLE.get(oui, "")
 
+
 def _port_status(ip: str, port: int) -> str:
     """
     Determine the status of a single port:
-      open     — connection accepted (connect_ex == 0)
-      closed   — connection refused (errno 111 / WSAECONNREFUSED 10061)
-      filtered — no response within timeout (everything else)
+      open     - connection accepted (connect_ex == 0)
+      closed   - connection refused (errno 111 / WSAECONNREFUSED 10061)
+      filtered - no response within timeout (everything else)
     """
     import errno as _errno
     try:
@@ -669,7 +814,6 @@ def _port_status(ip: str, port: int) -> str:
             result = s.connect_ex((ip, port))
             if result == 0:
                 return "open"
-            # ECONNREFUSED = 111 on Linux, 10061 on Windows
             if result in (111, 10061, _errno.ECONNREFUSED):
                 return "closed"
             return "filtered"
@@ -682,8 +826,7 @@ def _port_status(ip: str, port: int) -> str:
 def _scan_ports(ip: str, ports: list[int]) -> list[dict]:
     """
     Probe each port in the list.
-    Returns open ports only (closed/filtered excluded from results
-    but status field is set accurately for open ones).
+    Returns open ports only.
     """
     open_ports = []
     for port in ports:
@@ -700,6 +843,7 @@ def _scan_ports(ip: str, ports: list[int]) -> list[dict]:
             })
     return open_ports
 
+
 #  PUBLIC: run_scan
 def run_scan(
     subnet: str,
@@ -708,30 +852,10 @@ def run_scan(
     ports:  list[int] | None = None,
 ) -> list[dict]:
     """
-    Execute a two-phase scan against subnet.start–end.
+    Execute a two-phase scan against subnet.start-end.
 
-    Phase 1 — discovery sweep across the full range in parallel.
-    Phase 2 — full port scan only on confirmed live hosts.
-
-    Args:
-        subnet: e.g. "192.168.1"
-        start:  first host octet, 1–254
-        end:    last host octet,  1–254
-        ports:  list of port numbers to scan; None = all ports in PORT_MAP
-
-    Returns:
-        List of host dicts:
-        [
-          {
-            "ip":       "192.168.1.1",
-            "is_up":    True,
-            "hostname": "router.local",
-            "ports":    [{"port": 80, "label": "HTTP", ...}, ...]
-          },
-          ...
-        ]
-        Dead hosts are included with is_up=False and empty ports list
-        so the frontend can show total hosts scanned vs alive.
+    Phase 1 - discovery sweep across the full range in parallel.
+    Phase 2 - full port scan only on confirmed live hosts.
     """
     if ports is None:
         ports = list(PORT_MAP.keys())
@@ -739,13 +863,12 @@ def run_scan(
     all_ips  = [f"{subnet}.{i}" for i in range(start, end + 1)]
     ip_index = {ip: i for i, ip in enumerate(all_ips)}
 
-    # Pre-fill all as dead; live results overwrite below
     results: list[dict] = [
-        {"ip": ip, "is_up": False, "hostname": "", "mac": "", "vendor": "", "ports": [], "os_guess": None, "os_confidence": None, "os_detail": None, "os_icon": None}
+        {"ip": ip, "is_up": False, "hostname": "", "mac": "", "vendor": "", "ports": [],
+         "os_guess": None, "os_confidence": None, "os_detail": None, "os_icon": None}
         for ip in all_ips
     ]
 
-    # ── Phase 1: host discovery ──────────────────────────────
     log.info("Scan phase 1: discovering %d hosts on %s", len(all_ips), subnet)
     alive: list[str] = []
     with ThreadPoolExecutor(max_workers=PING_WORKERS) as ex:
@@ -763,28 +886,27 @@ def run_scan(
     if not alive:
         return results
 
-    # ── Phase 2: port scan on live hosts only ────────────────
     log.info("Scan phase 2: port scanning %d live hosts", len(alive))
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
         futures = {ex.submit(_scan_ports, ip, ports): ip for ip in alive}
         for future in as_completed(futures):
             ip = futures[future]
             try:
-                open_ports    = future.result()
-                hostname      = _resolve_hostname(ip)
-                os_info       = _fingerprint_os(ip, open_ports, hostname)
-                mac, vendor   = _get_mac(ip)
+                open_ports  = future.result()
+                hostname    = _resolve_hostname(ip)
+                os_info     = _fingerprint_os(ip, open_ports, hostname)
+                mac, vendor = _get_mac(ip)
                 results[ip_index[ip]] = {
-                    "ip":           ip,
-                    "is_up":        True,
-                    "hostname":     hostname,
-                    "mac":          mac,
-                    "vendor":       vendor,
-                    "ports":        open_ports,
-                    "os_guess":     os_info["os_guess"],
-                    "os_confidence":os_info["os_confidence"],
-                    "os_detail":    os_info["os_detail"],
-                    "os_icon":      os_info["os_icon"],
+                    "ip":            ip,
+                    "is_up":         True,
+                    "hostname":      hostname,
+                    "mac":           mac,
+                    "vendor":        vendor,
+                    "ports":         open_ports,
+                    "os_guess":      os_info["os_guess"],
+                    "os_confidence": os_info["os_confidence"],
+                    "os_detail":     os_info["os_detail"],
+                    "os_icon":       os_info["os_icon"],
                 }
             except Exception as e:
                 log.debug("Port scan error for %s: %s", ip, e)

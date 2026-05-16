@@ -30,7 +30,6 @@ log = logging.getLogger(__name__)
 JWT_SECRET = os.getenv("JWT_SECRET", "insecure-default-change-me")
 JWT_ALGO   = "HS256"
 
-
 # ─────────────────────────────────────────────────────────────
 #  EXCEPTIONS
 # ─────────────────────────────────────────────────────────────
@@ -39,7 +38,6 @@ class AuthError(Exception):
     def __init__(self, message: str = "Unauthorised"):
         self.message = message
         super().__init__(message)
-
 
 # ─────────────────────────────────────────────────────────────
 #  TOKEN HELPERS
@@ -64,7 +62,6 @@ def decode_token(raw_token: str) -> dict:
     except jwt.InvalidTokenError as e:
         log.debug("JWT decode failed: %s", e)
         raise AuthError("Invalid token.")
-
 
 def extract_token(handler_self) -> str:
     """
@@ -92,7 +89,6 @@ def extract_token(handler_self) -> str:
         return auth_header[len("Bearer "):]
 
     raise AuthError("No authentication token found. Please sign in.")
-
 
 # ─────────────────────────────────────────────────────────────
 #  MAIN MIDDLEWARE
@@ -154,10 +150,10 @@ def require_auth(handler_self) -> dict:
 
     if not user:
         raise AuthError("User account no longer exists.")
-
+    
     if user["status"] == "suspended":
         raise AuthError("Account suspended. Contact an administrator.")
-
+    
     if user["status"] == "pending":
         raise AuthError("Account pending activation. Check your email.")
 

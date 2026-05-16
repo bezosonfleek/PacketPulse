@@ -25,14 +25,11 @@ from dotenv import load_dotenv
 load_dotenv()
 log = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────────
 #  CONNECTION POOL
 #  minconn=2  — always keep 2 connections ready
 #  maxconn=10 — never open more than 10 simultaneous connections
 #  Adjust maxconn based on how many concurrent requests you expect.
-# ─────────────────────────────────────────────────────────────
 _pool: pool.ThreadedConnectionPool | None = None
-
 
 def init_pool() -> None:
     """
@@ -56,7 +53,6 @@ def init_pool() -> None:
         log.critical("Could not connect to Postgres: %s", e)
         raise
 
-
 def close_pool() -> None:
     """Close all connections in the pool. Called at server shutdown."""
     global _pool
@@ -64,10 +60,7 @@ def close_pool() -> None:
         _pool.closeall()
         log.info("Database pool closed")
 
-
-# ─────────────────────────────────────────────────────────────
 #  CONTEXT MANAGER — borrows and returns a connection safely
-# ─────────────────────────────────────────────────────────────
 @contextmanager
 def _get_conn():
     """
@@ -88,15 +81,12 @@ def _get_conn():
     finally:
         _pool.putconn(conn)
 
-
-# ─────────────────────────────────────────────────────────────
 #  PUBLIC QUERY HELPERS
 #  All four functions accept:
 #    sql    — parameterised SQL string, e.g. "SELECT ... WHERE id = %s"
 #    params — tuple of values to bind, e.g. (user_id,)
 #             Always use %s placeholders — never format strings directly
 #             into SQL. This prevents SQL injection by design.
-# ─────────────────────────────────────────────────────────────
 
 def fetchone(sql: str, params: tuple = ()) -> dict | None:
     """
@@ -114,7 +104,6 @@ def fetchone(sql: str, params: tuple = ()) -> dict | None:
             row = cur.fetchone()
             return dict(row) if row else None
 
-
 def fetchall(sql: str, params: tuple = ()) -> list[dict]:
     """
     Run a SELECT and return all matching rows as a list of dicts.
@@ -131,7 +120,6 @@ def fetchall(sql: str, params: tuple = ()) -> list[dict]:
             cur.execute(sql, params)
             return [dict(row) for row in cur.fetchall()]
 
-
 def execute(sql: str, params: tuple = ()) -> int:
     """
     Run an INSERT, UPDATE, or DELETE. Returns the number of rows affected.
@@ -147,7 +135,6 @@ def execute(sql: str, params: tuple = ()) -> int:
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.rowcount
-
 
 def execute_returning(sql: str, params: tuple = ()) -> dict | None:
     """
@@ -166,7 +153,6 @@ def execute_returning(sql: str, params: tuple = ()) -> dict | None:
             cur.execute(sql, params)
             row = cur.fetchone()
             return dict(row) if row else None
-
 
 def call_function(sql: str, params: tuple = ()):
     """
