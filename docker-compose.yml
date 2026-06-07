@@ -40,7 +40,35 @@ services:
       interval: 5s
       timeout:  5s
       retries:  10
-
+  
+  # BACKEND
+  # build: ./backend
+  #   Docker reads backend/Dockerfile and builds the image. The build context is the backend/ directory, so COPY . in the Dockerfile copies backend/ contents.
+  # env_file: .env
+  #   Loads all variables from .env into the container's
+  #   environment. This is how DB_HOST, JWT_SECRET, SMTP_*
+  #   etc. reach the Python process without being hardcoded.
+  #
+  # depends_on: db: condition: service_healthy
+  #   Docker won't start the backend until the db healthcheck
+  #   passes. This prevents "connection refused" crashes on
+  #   startup when Postgres is still initialising.
+  #
+  # networks:
+  #   Only on the internal network — not exposed to host.
+  #   Nginx proxies to it internally via http://backend:8000.
+  #   The backend port is intentionally NOT published here.
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - packetpulse-net
   # FRONTEND
   # Nginx serves static files and proxies /api/ to the native
   # backend running on the Windows host at port 8000.
