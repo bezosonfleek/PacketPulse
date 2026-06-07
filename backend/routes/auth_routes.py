@@ -22,7 +22,6 @@ import secrets
 
 import bcrypt
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import email_utils
 import jwt as pyjwt
 from dotenv import load_dotenv
 
