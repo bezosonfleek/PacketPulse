@@ -116,10 +116,6 @@
           <div class="field-hint" id="pw2-hint"></div>
         </div>
 
-        <div class="check-row" style="margin-bottom:24px">
-          <input type="checkbox" id="totp-setup">
-          <label for="totp-setup">I will set up two-factor authentication after registration <span style="color:var(--dimmer)">(strongly recommended)</span></label>
-        </div>
 
         <div class="btn-row">
           <button class="btn-back" onclick="prevStep(2)">← Back</button>
@@ -134,7 +130,8 @@
 
         <label class="field-label" style="margin-bottom:10px;display:block">Operator Role</label>
         <div class="role-grid" id="role-grid">
-          <div class="role-card selected" data-role="security" onclick="selectRole(this)">
+
+          <div class="role-card" data-role="security" onclick="selectRole(this)">
             <input type="radio" name="role" value="security" checked>
             <div class="role-check">✓</div>
             <div class="role-icon">🛡</div>
@@ -153,7 +150,7 @@
             <div class="role-name">DevOps</div>
             <div class="role-desc">CI/CD pipelines and containerised infra</div>
           </div>
-          <div class="role-card" data-role="other" onclick="selectRole(this)">
+          <div class="role-card selected" data-role="other" onclick="selectRole(this)">
             <input type="radio" name="role" value="other">
             <div class="role-icon">🔍</div>
             <div class="role-name">Other</div>
@@ -184,9 +181,6 @@
       <div class="form-page" id="page-4">
         <h1 class="form-title">Review &amp;<br>Confirm.</h1>
         <p class="form-sub">Verify your details before requesting access.</p>
-
-        <div id="review-block" style="margin-bottom:24px;background:rgba(255,255,255,0.03);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;font-family:var(--mono);font-size:0.7rem;line-height:2;color:var(--dim);">
-        </div>
 
         <div class="check-row">
           <input type="checkbox" id="terms">

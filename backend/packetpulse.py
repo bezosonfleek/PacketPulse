@@ -324,7 +324,7 @@ def _resolve_hostname(ip: str) -> str:
         return ""
 
 
-#  OS FINGERPRINTING - Uses TTL from ping + open port signatures + hostname hints
+# OS FINGERPRINTING - Uses TTL from ping + open port signatures + hostname hints
 # TTL thresholds - OS default TTLs degrade with each hop
 # Windows: 128, Linux/Mac: 64, Cisco/network: 255
 def _get_ttl(ip: str) -> int | None:
