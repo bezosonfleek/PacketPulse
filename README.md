@@ -1,7 +1,7 @@
-# PacketPulse — Docker Deployment
+# PacketPulse - Docker Deployment
 
-## Prerequisites - * Application is still in testing phase and I can't assure reliability
-- Docker Desktop installed (includes both docker & docker-compose)
+## Prerequisites
+- Docker Desktop (windows)/ docker installed (includes both docker & docker-compose)
 - Git
 
 ## First-time setup
@@ -11,8 +11,8 @@
 cp .env.example .env
 ```
 Open `.env` and set at minimum:
-- `DB_PASSWORD` — any strong password
-- `JWT_SECRET` — generate with: `python -c "import secrets; print(secrets.token_hex(48))"`
+- `DB_PASSWORD` - any strong password
+- `JWT_SECRET` - generate with: `python -c "import secrets; print(secrets.token_hex(48))"`
 
 ### 2. Build and start all containers
 ```bash
