@@ -1,7 +1,7 @@
 # PacketPulse - Docker Deployment
 
 ## Prerequisites
-- Docker Desktop installed (includes both docker & docker-compose)
+- Docker Desktop (windows)/ docker installed (includes both docker & docker-compose)
 - Git
 
 ## First-time setup
