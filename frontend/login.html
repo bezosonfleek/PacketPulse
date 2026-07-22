@@ -330,29 +330,6 @@
     setTimeout(() => addLogLine(), 1500);
     setInterval(addLogLine, 2200);
 
-    //  MFA INPUT — auto-advance & paste
-    const mfaInputs = Array.from(document.querySelectorAll('.mfa-input'));
-
-    mfaInputs.forEach((inp, i) => {
-      inp.addEventListener('input', e => {
-        const val = inp.value.replace(/\D/g, '');
-        inp.value = val.slice(0, 1);
-        if (val && i < mfaInputs.length - 1) mfaInputs[i + 1].focus();
-      });
-      inp.addEventListener('keydown', e => {
-        if (e.key === 'Backspace' && !inp.value && i > 0) mfaInputs[i - 1].focus();
-      });
-      inp.addEventListener('paste', e => {
-        e.preventDefault();
-        const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-        text.split('').forEach((ch, j) => {
-          if (mfaInputs[i + j]) mfaInputs[i + j].value = ch;
-        });
-        const next = mfaInputs[Math.min(i + text.length, mfaInputs.length - 1)];
-        next.focus();
-      });
-    });
-
     //  PASSWORD TOGGLE
     function togglePw() {
       const inp = document.getElementById('password');
